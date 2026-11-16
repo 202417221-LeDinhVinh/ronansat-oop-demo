@@ -1,0 +1,21 @@
+{
+  "theme": "base",
+  "fontSize": 18,
+  "themeVariables": {
+    "fontFamily": "Arial, Helvetica, sans-serif",
+    "fontSize": "18px"
+  },
+  "htmlLabels": false,
+  "class": {
+    "htmlLabels": false
+  },
+  "flowchart": {
+    "htmlLabels": false
+  },
+  "sequence": {
+    "mirrorActors": false,
+    "messageFontSize": 17,
+    "actorFontSize": 17,
+    "noteFontSize": 15
+  }
+}

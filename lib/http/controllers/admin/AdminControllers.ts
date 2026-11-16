@@ -278,8 +278,28 @@ const systemDeckSchema = z.object({
         .optional(),
 });
 
-export class AdminVocabDecksController extends BaseController<z.infer<typeof systemDeckSchema>> {
+export class AdminVocabDecksListController extends BaseController {
     protected override requiredRole: Role = "admin";
+
+    public constructor(private readonly adminService: AdminService) {
+        super();
+    }
+
+    protected async execute(): Promise<unknown> {
+        const decks = await this.adminService.getSystemDecks();
+        return {
+            decks: decks.map((deck) => ({
+                _id: deck.id,
+                title: deck.title,
+                description: deck.description,
+                isSystem: deck.isSystem,
+                totalCards: deck.cards.length,
+            })),
+        };
+    }
+}
+
+export class AdminVocabDecksController extends BaseController<z.infer<typeof systemDeckSchema>> {    protected override requiredRole: Role = "admin";
     protected override schema = systemDeckSchema;
     protected override successStatus = 201;
 

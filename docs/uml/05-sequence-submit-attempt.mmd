@@ -1,0 +1,31 @@
+%%{init: {
+  "sequence": {
+    "mirrorActors": false
+  }
+}}%%
+sequenceDiagram
+    actor Student
+    participant C as SubmitAttemptController
+    participant S as PracticeService
+    participant F as ScoringStrategyFactory
+    participant A as Attempt
+    participant FS as FullLengthScoringStrategy
+    participant R as Repositories
+
+    Student->>C: POST /api/attempts/:id/submit
+    Note over C: BaseController.handle():<br/>auth & parseAndValidate()
+    C->>S: submitAttempt(attemptId, userId)
+    S->>R: findById(attemptId) & findByTestId(testId)
+    R-->>S: attempt, questions
+    S->>F: getStrategy(attempt.mode)
+    F-->>S: strategy: FullLengthScoringStrategy
+    S->>A: submit(strategy, questions, now)
+    activate A
+    A->>FS: score(attempt, questions)
+    FS-->>A: scaledScore (1360)
+    Note over A: Invariant: status = "submitted"
+    deactivate A
+    S->>R: save(attempt) & save(errorLog)
+    R-->>S: savedAttempt
+    S-->>C: attempt
+    C-->>Student: 200 OK (ScaledScore: 1360)

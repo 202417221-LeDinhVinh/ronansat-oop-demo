@@ -1,0 +1,27 @@
+classDiagram
+    direction TB
+
+    class VocabDeck {
+        -_title: string
+        -_cards: VocabCard[]
+    }
+
+    class VocabCard {
+        -_box: number
+        -_nextReviewDate: Date
+        +review(grade, scheduler, now) void
+        +isDue(now) boolean
+    }
+
+    class ReviewScheduler {
+        <<interface>>
+        +calculateNextReview(box, grade, now)* ReviewScheduleResult
+    }
+
+    class LeitnerScheduler {
+        +calculateNextReview(box, grade, now) ReviewScheduleResult
+    }
+
+    VocabDeck "1" *-- "0..*" VocabCard : cards
+    ReviewScheduler <.. VocabCard : uses
+    ReviewScheduler <|.. LeitnerScheduler

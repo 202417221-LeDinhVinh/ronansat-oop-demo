@@ -1,0 +1,33 @@
+classDiagram
+    direction LR
+
+    class Attempt {
+        -_mode: TestMode
+        -_status: AttemptStatus
+        -_answers: AnswerRecord[]
+        -_score: ScaledScore
+        +recordAnswer(questionId, userAnswer, isCorrect) void
+        +submit(strategy, questions, now) ScaledScore
+    }
+
+    class AnswerRecord {
+        +questionId: string
+        +userAnswer: string
+        +isCorrect: boolean
+    }
+
+    class ScaledScore {
+        +total: number
+        +sectionScores: object
+    }
+
+    class ErrorLogEntry {
+        -_timesMissed: number
+        -_status: ErrorLogStatus
+        +recordNewMistake(attemptId, now) void
+        +retry(isCorrect, now) boolean
+    }
+
+    Attempt "1" *-- "0..*" AnswerRecord : answers
+    Attempt "1" *-- "0..1" ScaledScore : score
+    Attempt ..> ErrorLogEntry : triggers mistake

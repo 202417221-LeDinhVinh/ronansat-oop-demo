@@ -1,0 +1,30 @@
+classDiagram
+    direction TB
+
+    class Attempt {
+        -_mode: TestMode
+        -_status: AttemptStatus
+        +submit(strategy, questions, now) ScaledScore
+    }
+
+    class ScoringStrategyFactory {
+        +getStrategy(mode)$ ScoringStrategy
+    }
+
+    class ScoringStrategy {
+        <<interface>>
+        +score(attempt, questions)* ScaledScore
+    }
+
+    class FullLengthScoringStrategy {
+        +score(attempt, questions) ScaledScore
+    }
+
+    class SectionalScoringStrategy {
+        +score(attempt, questions) ScaledScore
+    }
+
+    Attempt ..> ScoringStrategy : delegates score
+    ScoringStrategyFactory ..> ScoringStrategy : instantiates
+    ScoringStrategy <|.. FullLengthScoringStrategy
+    ScoringStrategy <|.. SectionalScoringStrategy

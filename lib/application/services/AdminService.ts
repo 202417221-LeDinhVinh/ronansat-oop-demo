@@ -222,6 +222,17 @@ export class AdminService {
     }
 
     // --- System Vocab Decks CRUD ---
+    public async getSystemDecks(): Promise<VocabDeck[]> {
+        const decks = await this.deckRepo.findSystemDecks();
+        for (const deck of decks) {
+            const cards = await this.cardRepo.findByDeckId(deck.id);
+            for (const card of cards) {
+                deck.addCard(card);
+            }
+        }
+        return decks;
+    }
+
     public async createSystemDeck(dto: CreateSystemDeckDTO): Promise<VocabDeck> {
         const deck = new VocabDeck({
             id: "",

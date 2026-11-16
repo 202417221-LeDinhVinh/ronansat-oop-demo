@@ -1,0 +1,46 @@
+classDiagram
+    direction LR
+
+    class Test {
+        -_title: string
+        -_timeLimit: number
+        -_sections: Section[]
+        +title() string
+        +sections() Section[]
+        +addQuestionId(questionId) void
+    }
+
+    class Section {
+        +name() string
+        +module() number
+        +questionsCount() number
+        +timeLimit() number
+    }
+
+    class Question {
+        <<abstract>>
+        #_testId: string
+        #_section: string
+        #_module: number
+        +testId() string
+        +questionType()* QuestionType
+        +isCorrect(userAnswer)* boolean
+    }
+
+    class MultipleChoiceQuestion {
+        -_choices: string[]
+        -_correctAnswer: string
+        +choices() string[]
+        +isCorrect(userAnswer) boolean
+    }
+
+    class StudentProducedResponseQuestion {
+        -_acceptedAnswers: string[]
+        +acceptedAnswers() string[]
+        +isCorrect(userAnswer) boolean
+    }
+
+    Test "1" *-- "1..*" Section : sections
+    Test "1" --> "0..*" Question : questions
+    Question <|-- MultipleChoiceQuestion
+    Question <|-- StudentProducedResponseQuestion

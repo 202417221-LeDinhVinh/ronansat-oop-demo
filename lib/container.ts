@@ -64,6 +64,7 @@ import {
     AdminUsersController,
     AdminUserRoleController,
     AdminVocabDecksController,
+    AdminVocabDecksListController,
     AdminVocabDeckDetailController,
 } from "./http/controllers/admin/AdminControllers";
 import {
@@ -138,6 +139,7 @@ export class Container {
     public readonly adminUsersController: AdminUsersController;
     public readonly adminUserRoleController: AdminUserRoleController;
     public readonly adminVocabDecksController: AdminVocabDecksController;
+    public readonly adminVocabDecksListController: AdminVocabDecksListController;
     public readonly adminVocabDeckDetailController: AdminVocabDeckDetailController;
     public readonly userSettingsController: UserSettingsController;
     public readonly userPasswordController: UserPasswordController;
@@ -242,6 +244,7 @@ export class Container {
         this.adminUsersController = new AdminUsersController(this.adminService);
         this.adminUserRoleController = new AdminUserRoleController(this.adminService);
         this.adminVocabDecksController = new AdminVocabDecksController(this.adminService);
+        this.adminVocabDecksListController = new AdminVocabDecksListController(this.adminService);
         this.adminVocabDeckDetailController = new AdminVocabDeckDetailController(
             this.adminService
         );

@@ -1,0 +1,52 @@
+classDiagram
+    direction LR
+
+    class Container {
+        -instance$: Container
+        +getInstance()$ Container
+    }
+
+    class IRepository~TEntity, TId~ {
+        <<interface>>
+        +findById(id)* Promise~TEntity~
+        +save(entity)* Promise~TEntity~
+    }
+
+    class MongoRepository~TEntity, TDoc~ {
+        <<abstract>>
+        #toEntity(doc)* TEntity
+        #toDocument(entity)* object
+    }
+
+    class InMemoryUserRepository {
+        -storage: Map
+    }
+
+    class PasswordHasher {
+        <<interface>>
+        +hash(plain)* Promise~string~
+        +compare(plain, hash)* Promise~boolean~
+    }
+
+    class BcryptPasswordHasher {
+        -saltRounds: number
+        +hash(plain) Promise~string~
+    }
+
+    class Clock {
+        <<interface>>
+        +now()* Date
+    }
+
+    class SystemClock {
+        +now() Date
+    }
+
+    Container ..> IRepository : wires
+    Container ..> PasswordHasher : wires
+    Container ..> Clock : wires
+
+    IRepository <|.. MongoRepository
+    IRepository <|.. InMemoryUserRepository
+    PasswordHasher <|.. BcryptPasswordHasher
+    Clock <|.. SystemClock

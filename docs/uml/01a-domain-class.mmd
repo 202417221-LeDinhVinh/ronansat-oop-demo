@@ -1,0 +1,112 @@
+classDiagram
+    direction LR
+
+    class Entity~TId~ {
+        <<abstract>>
+        #_id: TId
+        +id() TId
+        +equals(other) boolean
+    }
+
+    class ValueObject {
+        <<abstract>>
+        #props: Readonly
+        +equals(other) boolean
+    }
+
+    class Email {
+        -value: string
+        +value() string
+        +toString() string
+        +equals(other) boolean
+    }
+
+    class User {
+        <<abstract>>
+        #_email: Email
+        #_name: string
+        #_passwordHash: string
+        #_role: Role
+        #_createdAt: Date
+        +email() Email
+        +name() string
+        +role() Role
+        +canAccessAdmin()* boolean
+    }
+
+    class Student {
+        -_highestScore: number
+        -_testsTaken: string[]
+        -_wrongQuestions: string[]
+        +highestScore() number
+        +testsTaken() string[]
+        +recordTestCompletion(testId, score) void
+        +addWrongQuestion(questionId) void
+        +canAccessAdmin() boolean
+    }
+
+    class Admin {
+        +canAccessAdmin() boolean
+    }
+
+    class Test {
+        -_title: string
+        -_timeLimit: number
+        -_difficulty: string
+        -_sections: Section[]
+        -_questionIds: string[]
+        +title() string
+        +sections() Section[]
+        +addQuestionId(questionId) void
+    }
+
+    class Section {
+        +name() string
+        +module() number
+        +questionsCount() number
+        +timeLimit() number
+    }
+
+    class Question {
+        <<abstract>>
+        #_testId: string
+        #_section: string
+        #_module: number
+        #_questionText: string
+        #_explanation: string
+        #_difficulty: QuestionDifficulty
+        #_points: number
+        +testId() string
+        +questionType()* QuestionType
+        +isCorrect(userAnswer)* boolean
+    }
+
+    class MultipleChoiceQuestion {
+        -_choices: string[]
+        -_correctAnswer: string
+        +choices() string[]
+        +correctAnswer() string
+        +isCorrect(userAnswer) boolean
+    }
+
+    class StudentProducedResponseQuestion {
+        -_acceptedAnswers: string[]
+        +acceptedAnswers() string[]
+        +isCorrect(userAnswer) boolean
+    }
+
+    Entity <|-- User
+    Entity <|-- Test
+    Entity <|-- Question
+    ValueObject <|-- Email
+    ValueObject <|-- Section
+
+    User <|-- Student
+    User <|-- Admin
+    User "1" *-- "1" Email : has
+
+    Test "1" *-- "1..*" Section : sections
+    Test "1" --> "0..*" Question : questions
+
+    Question <|-- MultipleChoiceQuestion
+    Question <|-- StudentProducedResponseQuestion

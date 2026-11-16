@@ -1,0 +1,39 @@
+flowchart LR
+    Student["«actor»<br/>Student"]
+
+    subgraph SYSTEM["RonanSAT Student Boundary"]
+        direction LR
+
+        subgraph G1["Assessment Execution"]
+            direction TB
+            U1(["Start Exam Sitting"])
+            U2(["Record Answer"])
+            U3(["Submit Exam Sitting"])
+            U4(["Calculate Scaled Score"])
+            U3 -.->|«include»| U4
+        end
+
+        subgraph G2["Mistake Remediation"]
+            direction TB
+            U5(["Review Error Log"])
+            U6(["Retry Mistake Inline"])
+            U5 -.->|«extend»| U6
+        end
+
+        subgraph G3["Spaced Repetition & Analytics"]
+            direction TB
+            U7(["Study Due Flashcards"])
+            U8(["Rate Retention Grade"])
+            U9(["Inspect Skill Analytics"])
+            U7 -.->|«include»| U8
+        end
+
+        G1 ~~~ G2 ~~~ G3
+    end
+
+    Student --- U1
+    Student --- U2
+    Student --- U3
+    Student --- U5
+    Student --- U7
+    Student --- U9

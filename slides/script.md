@@ -1,4 +1,4 @@
-# RonanSAT — Kịch Bản Thuyết Trình OOP Lab (10 - 12 Phút)
+# RonanSAT v2 — Kịch Bản Thuyết Trình OOP Lab (10 - 12 Phút)
 
 - **Người trình bày:** Lê Vinh - MSSV: 202417221
 - **Nhóm:** Nhóm 08
@@ -7,161 +7,199 @@
 
 ---
 
-## Slide 1 - Title: RonanSAT: OOP Lab Architecture
-Em xin kính chào thầy và các bạn. Hôm nay em xin đại diện nhóm 08 trình bày về thiết kế hướng đối tượng và kiến trúc phân lớp của dự án RonanSAT — Nền tảng luyện thi chuẩn hóa Digital SAT. Bài thuyết trình của em sẽ kéo dài khoảng 10 đến 12 phút, gồm 3 phần chính: thứ nhất là mô hình thực thể và hệ thống kiểu dữ liệu; thứ hai là kiến trúc phân lớp cùng các nguyên lý OOP được áp dụng trong mã nguồn; và thứ ba là phần demo trực tiếp MVP cùng định hướng nâng cấp tính đa hình trong tương lai.
+## Slide 1 - Title: RonanSAT v2: Real OOP Architecture
+Em xin kính chào thầy và các bạn. Hôm nay em xin đại diện Nhóm 08 trình bày kiến trúc hướng đối tượng thực thụ của phiên bản RonanSAT v2 — Nền tảng luyện thi chuẩn hóa Digital SAT. Trong phiên bản này, toàn bộ hệ thống đã được tái thiết kế từ đầu theo chuẩn Clean Architecture và áp dụng triệt để 4 trụ cột OOP cùng các Design Pattern kinh điển của GoF. Bài thuyết trình gồm 3 nội dung trọng tâm: kiến trúc phân lớp và thực thể miền; 4 trụ cột OOP kèm trích đoạn mã nguồn thực tế; và chất lượng kiểm thử với 64 bài unit test tự động cùng kịch bản demo trực tiếp.
 
 ---
 
-## Slide 2 - Project Overview: RonanSAT MVP Scope
-RonanSAT là hệ thống mô phỏng bài thi Digital SAT thực tế, hỗ trợ học sinh làm bài thi bấm giờ gồm 2 phần Reading & Writing và Math với tích hợp máy tính đồ thị Desmos trực tiếp trên giao diện. Ngay sau khi nộp bài, hệ thống chấm điểm tự động và quy đổi theo thang chuẩn SAT 400 đến 1600, kèm bảng tổng hợp lỗi sai và lời giải thích chi tiết cho từng câu hỏi. Bộ demo hiện tại đã được nạp sẵn 2 đề thi thật từ dữ liệu sản xuất với 171 câu trắc nghiệm, chạy hoàn toàn offline thông qua MongoDB in-memory mà không cần cấu hình thêm bất kỳ tài khoản ngoài nào.
+## Slide 2 - Product Overview: RonanSAT v2 Features
+RonanSAT v2 là hệ thống luyện thi Digital SAT toàn diện với 2 phân hệ người dùng chính là Học sinh và Quản trị viên. Phía học sinh có thể làm bài thi bấm giờ gồm 4 module hoàn chỉnh hoặc luyện tập phân đoạn (Sectional) với tích hợp máy tính đồ thị Desmos và công thức toán học KaTeX chuẩn College Board. Hệ thống hỗ trợ song song 2 cơ chế câu hỏi: trắc nghiệm MCQ và câu hỏi điền số/phân số SPR với bộ so khớp dung sai tự động. Đặc biệt, kết quả thi được chấm điểm theo thang SAT thực tế, tự động tổng hợp vào Error Log chống trùng lặp và hỗ trợ học từ vựng SAT theo thuật toán lặp lại ngắt quãng Leitner 5 hộp. Dự án đã nạp sẵn 2 đề thi thật với 171 câu hỏi và chạy hoàn toàn offline qua MongoDB in-memory.
 
 ---
 
-## Slide 3 - Why TypeScript Supports OOP in RonanSAT
-Dự án của chúng em được xây dựng hoàn toàn bằng TypeScript trên nền Next.js và React. TypeScript đóng vai trò là nền tảng hướng đối tượng mạnh mẽ cho hệ thống thông qua kiểm tra kiểu tĩnh ở thời điểm biên dịch, giúp phát hiện sớm các lỗi dữ liệu trước khi chạy. Chúng em định nghĩa các interface như IUser, ITest, IQuestion làm hợp đồng dữ liệu rõ ràng giữa UI và database. Đồng thời, TypeScript cung cấp đầy đủ các từ khóa của OOP như class, private, readonly và generics, giúp mã nguồn vừa an toàn vừa giữ được tính đóng gói cao.
-
-> **Nếu thầy hỏi:** *TypeScript bản chất biên dịch ra JavaScript thì tính hướng đối tượng có thực sự tồn tại ở runtime không?*  
-> **Trả lời:** *Dạ thưa thầy, ở runtime JavaScript hoạt động theo prototype, nhưng TypeScript đóng vai trò là "lớp bảo vệ hợp đồng" ở compile-time. Tất cả các vi phạm về đóng gói, kiểu dữ liệu hay truy cập trường private đều bị trình biên dịch chặn lại ngay từ lúc dev gõ phím, đảm bảo tính kỷ luật OOP trước khi code được triển khai.*
+## Slide 3 - Technology Stack & Architectural Standards
+Về mặt công nghệ, hệ thống sử dụng Next.js 16 và React 19 cho tầng giao diện người dùng, kết hợp bảng màu Warm Studio và Tailwind CSS v4. Các API Route Handler của Next.js được tinh gọn tối đa theo mô hình Thin Route Pattern: mỗi handler chỉ chứa 1 đến 5 dòng ủy quyền toàn bộ cho các lớp Controller OOP. Tầng ứng dụng và tầng miền là các class TypeScript thuần túy được bật chế độ `strict: true` tuyệt đối, không sử dụng kiểu dữ liệu `any`. Kiến trúc tuân thủ nghiêm ngặt nguyên lý Đảo ngược phụ thuộc (DIP), đảm bảo tầng miền hoàn toàn độc lập với thư viện cơ sở dữ liệu Mongoose bên ngoài.
 
 ---
 
-## Slide 4 - System Use Case Diagram: Student Practice & Tutoring
-Trên màn hình là sơ đồ Use Case dành cho luồng học sinh (Student). Học sinh là tác nhân chính tương tác với phân hệ Practice & Assessment: duyệt kho đề, tham gia thi thử có bấm giờ kèm máy tính Desmos, nộp bài để tính điểm tự động và xem lại lời giải chi tiết. Đồng thời, học sinh có thể tương tác với phân hệ AI Tutoring thông qua Gemini AI để nhận hướng dẫn giải thích câu hỏi khi gặp khó khăn. Mọi tương tác trong phân hệ này được thiết kế theo luồng trực quan từ trái sang phải.
+## Slide 4 - Layered Architecture: Separation of Concerns
+Mã nguồn của RonanSAT v2 được phân chia thành 4 tầng rõ rệt: Tầng HTTP nhận diện request và ủy quyền cho BaseController; Tầng Application chứa các ca sử dụng dưới dạng Service được tiêm phụ thuộc qua constructor; Tầng Domain lưu trữ các thực thể nghiệp vụ thuần túy, Value Object và Scoring Strategy; và Tầng Infrastructure quản lý lưu trữ dữ liệu MongoDB cùng các driver mã hóa. Toàn bộ đồ thị phụ thuộc được khởi tạo tập trung tại Composition Root duy nhất là lớp `Container` Singleton nằm ở `lib/container.ts`.
+
+> **Nếu thầy hỏi:** *Tại sao lại cần tách riêng Tầng Application Service và Tầng Domain Entity thay vì viết hết logic vào Service?*  
+> **Trả lời:** *Dạ thưa thầy, Tầng Domain đại diện cho các quy tắc nghiệp vụ cốt lõi không bao giờ thay đổi theo công nghệ, ví dụ như bất biến bài thi đã nộp thì không được sửa câu trả lời. Còn Tầng Application đóng vai trò nhạc trưởng (orchestrator), điều phối việc lấy dữ liệu từ Repository, gọi các phương thức của Domain Entity và lưu lại trạng thái. Tách bạch như vậy giúp logic nghiệp vụ độc lập hoàn toàn với database và framework.*
 
 ---
 
-## Slide 5 - System Use Case Diagram: Administration & Authentication
-Slide này thể hiện sơ đồ Use Case dành cho quản trị viên và các dịch vụ nền tảng dùng chung. Cả học sinh và quản trị viên đều đi qua phân hệ Core Account Services để đăng ký và xác thực tài khoản qua NextAuth, cũng như quản lý hồ sơ cá nhân. Phía quản trị viên (Admin) sở hữu các quyền tác vụ chuyên biệt: tạo đề thi mới, soạn thảo câu hỏi kèm đoạn văn đọc hiểu và quản lý bảng vinh danh học sinh xuất sắc (Hall of Fame).
+## Slide 5 - Layered Architecture: Practice & Vocab Controllers & Services (UML 03a1)
+Trên màn hình là sơ đồ lớp kiến trúc của tầng HTTP Controller và Application Service phục vụ phân hệ Luyện tập và Học từ vựng. Các controller chuyên biệt như `SubmitAttemptController`, `RecordAnswerController` hay `ReviewVocabCardController` đều kế thừa từ lớp trừu tượng `BaseController`. Lớp cơ sở này cài đặt mẫu thiết kế Template Method thông qua phương thức `handle()`, tự động thực hiện chuỗi kiểm tra xác thực, phân quyền và kiểm tra dữ liệu bằng Zod trước khi kích hoạt `execute()` để điều phối tới `PracticeService` và `VocabService` được tiêm phụ thuộc qua constructor.
 
 ---
 
-## Slide 6 - Layered Architecture: Separation of Concerns
-Để đảm bảo tính tổ chức và dễ bảo trì, chúng em tổ chức mã nguồn theo kiến trúc 4 tầng phân lớp rõ rệt:
-1. API Route (`app/api/*`) tiếp nhận request mạng và định tuyến theo giao thức HTTP.
-2. Controller (`lib/controllers/*`) phân tích tham số truy vấn, xác thực phiên đăng nhập và định dạng HTTP status code.
-3. Service Layer (`lib/services/*`) chứa toàn bộ logic nghiệp vụ, kiểm tra tính hợp lệ qua Zod và tính điểm.
-4. Model Layer (`lib/models/*`) định nghĩa schema Mongoose, các interface miền và thực hiện lưu trữ dữ liệu.
-Luồng phụ thuộc đi theo một chiều từ trên xuống dưới: route gọi controller, controller gọi service, và chỉ service mới trực tiếp thao tác với model.
-
-> **Nếu thầy hỏi:** *Tại sao Next.js đã có Route Handler rồi mà em vẫn tách thêm Controller và Service?*  
-> **Trả lời:** *Dạ thưa thầy, Route Handler của Next.js chỉ nên làm nhiệm vụ định tuyến giao thức mạng. Tách riêng Controller và Service giúp tách biệt hoàn toàn giữa logic giao tiếp HTTP và logic nghiệp vụ. Khi chuyển sang framework khác như Express hay NestJS, toàn bộ tầng Service nghiệp vụ của em vẫn được tái sử dụng nguyên vẹn.*
+## Slide 6 - Layered Architecture: Auth & Administration Controllers & Services (UML 03a2)
+Tiếp nối kiến trúc phân lớp, sơ đồ này thể hiện tầng điều khiển cho phân hệ Xác thực và Quản trị nền tảng. Các controller như `RegisterController`, `AdminTestsController` và `AdminMetricsController` cũng áp dụng nghiêm ngặt khung Template Method từ `BaseController`. Khi người dùng đăng ký hoặc quản trị viên thao tác theo dõi chỉ số hệ thống và ngân hàng đề thi, controller kiểm tra phiên làm việc và quyền hạn cấp cao, sau đó ủy quyền xử lý nghiệp vụ cho `AuthService` và `AdminService`, đảm bảo tính an toàn và chuẩn hóa dữ liệu đầu vào.
 
 ---
 
-## Slide 7 - Layered Class Diagram: Tests & Questions Flows
-Sơ đồ lớp kiến trúc này thể hiện chi tiết hai luồng dữ liệu cốt lõi: Quản lý bài thi (Tests) và Câu hỏi (Questions). Ở mỗi luồng, Route handler chuyển tiếp lời gọi đến Controller tương ứng (`testController`, `questionController`). Controller ủy quyền cho Service (`testService`, `questionService`) xử lý. Tầng Service sử dụng các Zod schema (`TestValidationSchema`, `QuestionValidationSchema`) để xác thực dữ liệu trước khi lưu trữ vào các model `ITest` và `IQuestion`.
+## Slide 7 - Persistence Architecture: Generic Repositories, Ports & Container (UML 03b)
+Slide này thể hiện kiến trúc lưu trữ dữ liệu với việc áp dụng mẫu thiết kế Repository và Dependency Inversion. Tầng ứng dụng chỉ giao tiếp thông qua hợp đồng giao diện tổng quát `IRepository<T, TId>` và các interface chuyên biệt như `IAttemptRepository` hay `Clock`. Lớp trừu tượng `MongoRepository` định nghĩa khung chuyển đổi Document-Entity theo Template Method, trong khi các lớp `InMemoryRepository` giúp chạy unit test độc lập không cần MongoDB. Lớp `Container` Singleton đóng vai trò nhà máy lắp ráp toàn bộ hệ thống ngay khi ứng dụng khởi động.
+
+> **Nếu thầy hỏi:** *Việc dùng In-memory Repository ở đây mang lại lợi ích gì so với mock trực tiếp bằng Jest/Vitest?*  
+> **Trả lời:** *Dạ thưa thầy, việc có sẵn lớp `InMemory*Repository` cài đặt trọn vẹn interface `IRepository` cho phép chúng em kiểm thử hành vi lưu trữ và nghiệp vụ một cách chân thực nhất mà không cần phụ thuộc vào thư viện mock của bên thứ ba, đồng thời tốc độ thực thi cực nhanh: toàn bộ 64 unit test chạy xong dưới 2 giây.*
 
 ---
 
-## Slide 8 - Layered Class Diagram: Results & Chat Flows
-Slide tiếp theo thể hiện hai luồng nghiệp vụ còn lại: Quản lý kết quả thi (Results) và Phiên hội thoại với trợ lý học tập (Chat). Tương tự, `resultController` và `chatController` tiếp nhận yêu cầu từ client, gọi sang `resultService` và `chatService`. Các truy vấn database được giữ trọn vẹn bên trong tầng Service, giúp tầng điều khiển hoàn toàn độc lập với chi tiết lưu trữ MongoDB.
+## Slide 8 - System Use Case Model: Student Practice, Error Log & Vocab Lifecycle (UML 04a)
+Đây là sơ đồ ca sử dụng chi tiết dành cho tác nhân Học sinh, được thiết kế theo luồng phẳng chuẩn mực với 0 đường giao cắt chéo. Học sinh là trung tâm của 4 nhóm ca sử dụng lớn: Làm bài thi thử (gồm Full-Length 4 module hoặc Sectional với tích hợp máy tính Desmos và công thức KaTeX); Tra cứu kết quả thi và xem ma trận điểm chi tiết; Quản lý sổ tay lỗi sai Error Log với cơ chế khử trùng lặp và làm lại câu sai trực tiếp; và cuối cùng là Ôn tập từ vựng Flashcard theo thuật toán dãn cách Leitner 5 hộp.
 
 ---
 
-## Slide 9 - Domain Model Class Diagram: Entities & Relationships
-Đây là sơ đồ lớp mô hình thực thể miền (Domain Class Diagram) thể hiện đầy đủ các thuộc tính, kiểu dữ liệu và mối liên kết giữa các thực thể: `User`, `Test`, `Section`, `Question`, `Result`, `IAnswer`, và `Chat`. Tất cả các quan hệ đều được định lượng rõ ràng với các số lượng liên kết (multiplicities) chuẩn UML như 1, 1..*, 0..*.
+## Slide 9 - System Use Case Model: Platform Administration & Content Workflows (UML 04b)
+Sơ đồ ca sử dụng tiếp theo dành riêng cho tác nhân Quản trị viên, cũng được thiết kế chuẩn xác với 0 đường giao cắt. Quản trị viên được xác thực qua cơ chế RBAC và làm chủ 2 nhóm nghiệp vụ chính: Quản lý nền tảng và bài thi (giám sát các chỉ số KPI, cấu hình thời gian thi, xuất bản bài thi); và Quản lý nội dung học thuật (soạn thảo câu hỏi trắc nghiệm MCQ, cấu hình quy tắc và dung sai câu hỏi điền số SPR, quản trị người dùng và biên tập các bộ từ vựng SAT).
 
 ---
 
-## Slide 10 - Domain Model: Multiplicities & Composition Analysis
-Trên slide này, nhóm em phân tích chi tiết quyết định thiết kế giữa Composition và Aggregation:
-- **Composition (Quan hệ Hợp thành):** Chúng em áp dụng cho những thành phần không thể tồn tại độc lập bên ngoài thực thể cha. Cụ thể, `Section` được nhúng trực tiếp trong `Test` (`sections: [SectionSchema]`), và `IAnswer` được nhúng trực tiếp trong `Result` (`answers: [AnswerSchema]`). Khi bản ghi cha bị xóa, các thành phần con này sẽ tự động bị dọn dẹp theo.
-- **Aggregation / Association (Quan hệ Tập hợp / Liên kết):** Áp dụng cho các thực thể có vòng đời độc lập. `Question` là một collection riêng biệt trong ngân hàng câu hỏi, được `Test` liên kết thông qua mảng ObjectId (`testId`).
+## Slide 10 - OOP Pillar 1: Encapsulation & Invariant Protection
+Trụ cột đầu tiên là Tính Đóng Gói (Encapsulation). Trong RonanSAT v2, các trường trạng thái nội bộ của Entity như `_status`, `_answers`, hay `_score` đều được khai báo `private` và chỉ truy cập qua getter đọc. Các bất biến nghiệp vụ (domain invariants) được bảo vệ tuyệt đối: ví dụ trong phương thức `recordAnswer()`, nếu bài thi đã ở trạng thái `submitted`, hệ thống sẽ ném ngay lỗi `InvariantViolationError`. Tương tự, các Value Object như `ScaledScore` và `Email` tự kiểm tra tính hợp lệ ngay trong hàm khởi tạo, ngăn chặn việc tạo ra các đối tượng ở trạng thái không hợp lệ.
 
-> **Nếu thầy hỏi:** *Tại sao Section lại dùng Composition mà Question lại dùng Association với Test?*  
-> **Trả lời:** *Dạ thưa thầy, Section là cấu trúc gắn liền của đề thi (thời gian làm bài, số lượng câu của module đó) nên khi xóa đề thi thì Section cũng biến mất cùng Test, vì vậy em dùng embedded schema (Composition). Còn Question là một thực thể độc lập có ngân hàng câu hỏi riêng, có nội dung đọc hiểu và hình vẽ, nên được lưu thành collection riêng và liên kết qua ObjectId (Aggregation).*
+> **Nếu thầy hỏi:** *Tại sao lại dùng Value Object cho ScaledScore và Email thay vì dùng kiểu number và string có sẵn?*  
+> **Trả lời:** *Dạ thưa thầy, kiểu primitive number hay string không thể tự bảo vệ ràng buộc nghiệp vụ. Ví dụ `ScaledScore` bắt buộc tổng điểm phải từ 400 đến 1600 hoặc điểm sectional từ 200 đến 800. Đóng gói vào Value Object đảm bảo bất kỳ nơi nào trong hệ thống sở hữu đối tượng này đều chắc chắn mang giá trị hợp lệ mà không cần kiểm tra lại.*
 
 ---
 
-## Slide 11 - Encapsulation: Protecting Sensitive State & Boundaries
-Tính đóng gói (Encapsulation) được thể hiện rất rõ trong việc bảo vệ dữ liệu nhạy cảm của người dùng. Trong UserSchema, trường password được cấu hình `select: false`, nghĩa là mọi truy vấn thông thường của ứng dụng sẽ không bao giờ trả về mật khẩu người dùng. Chỉ duy nhất trong hàm authorize của NextAuth, hệ thống mới gọi tường minh `.select("+password")` để tiến hành so sánh băm bằng bcrypt. Đồng thời, hàm dbConnect đóng gói toàn bộ logic kết nối MongoDB và bộ nhớ đệm kết nối, che giấu chi tiết kỹ thuật khỏi các tầng bên trên.
+## Slide 11 - OOP Pillar 2: Abstraction via Decoupled Contracts
+Trụ cột thứ hai là Tính Trừu Tượng (Abstraction) thông qua các hợp đồng giao diện tách rời. Các nghiệp vụ cấp cao không bao giờ import trực tiếp các thư viện cấp thấp như Mongoose hay thời gian của hệ điều hành. Thay vào đó, chúng phụ thuộc vào các Port Interface như `ScoringStrategy`, `IRepository`, và `Clock`. Trong đoạn code trích dẫn, `PracticeService` nhận các port này qua constructor, cho phép hoán đổi bộ tính điểm hoặc nguồn thời gian kiểm thử một cách minh bạch mà không cần sửa bất kỳ dòng mã nghiệp vụ nào.
 
-> **Nếu thầy hỏi:** *Tính đóng gói ở đây khác gì so với thuộc tính private trong class Java?*  
-> **Trả lời:** *Dạ thưa thầy, ở mức độ ứng dụng database, việc đặt `select: false` trong schema là kỹ thuật đóng gói phòng thủ sâu (defense-in-depth). Dù lập trình viên ở tầng Controller có lỡ tay trả về cả object User ra JSON, trường mật khẩu vẫn được che giấu tự động từ cấp độ model, ngăn ngừa rò rỉ thông tin.*
-
----
-
-## Slide 12 - Abstraction via Interfaces: Decoupling Contracts
-Tính trừu tượng (Abstraction) được thể hiện qua các TypeScript interface như IUser, ITest, IQuestion và IResult. Tầng Controller khi làm việc chỉ phụ thuộc vào chữ ký phương thức của Service, ví dụ như `testService.getTests(page, limit, sortBy, sortOrder)`, mà hoàn toàn không cần biết bên dưới Service sử dụng câu lệnh MongoDB gì, phân trang theo công thức skip-limit nào. Khách hàng sử dụng dịch vụ chỉ cần quan tâm đến kết quả trả về đúng theo hợp đồng giao diện đã cam kết.
+> **Nếu thầy hỏi:** *Tại sao phải trừu tượng hóa Clock thành interface thay vì gọi thẳng `new Date()` trong service?*  
+> **Trả lời:** *Dạ thưa thầy, các thuật toán học từ vựng lặp lại ngắt quãng (Leitner) phụ thuộc chặt chẽ vào thời gian. Nếu gọi `new Date()`, việc viết unit test kiểm tra thẻ có "đến hạn ôn tập sau 3 ngày" sẽ rất khó khăn và phải dùng hàm sleep. Với interface `Clock`, em có thể tiêm một mock clock có thời gian cố định hoặc nhảy cóc thời gian tùy ý trong unit test.*
 
 ---
 
-## Slide 13 - Inheritance & Composition: Real Structure in Code
-Trên slide là bảng tổng hợp các quan hệ kế thừa và kết hợp trong mã nguồn thực tế. Về kế thừa, các interface mô hình mở rộng trực tiếp từ interface Document của Mongoose để kế thừa các phương thức vòng đời như `.save()`, `.populate()` và trường `_id`. Về kết hợp, chúng em ưu tiên nguyên lý "Composition over Inheritance": Test kết hợp nhúng SectionSchema, và Result kết hợp nhúng AnswerSchema. Các câu hỏi được liên kết dạng tham chiếu để đảm bảo hiệu năng truy vấn tối ưu.
-
-> **Nếu thầy hỏi:** *Tại sao các model trong code không dùng kế thừa class (class A extends B) mà lại dùng interface extends Document?*  
-> **Trả lời:** *Dạ thưa thầy, trong kiến trúc hướng văn bản (document-oriented) của MongoDB và Mongoose, việc lạm dụng kế thừa class phức tạp thường dẫn đến vấn đề impedance mismatch và khó ánh xạ BSON. Vì vậy nhóm em tuân thủ best practice của Mongoose và TypeScript: dùng interface inheritance cho hợp đồng kiểu, và dùng schema composition cho cấu trúc tài liệu.*
+## Slide 12 - OOP Pillar 3: Inheritance & Template Method Hierarchy
+Trụ cột thứ ba là Tính Kế Thừa (Inheritance) được tổ chức theo hệ thống phân cấp chặt chẽ. Lớp trừu tượng `Entity<TId>` cung cấp logic so sánh định danh (`equals()`) được kế thừa bởi tất cả các thực thể trong miền như `User`, `Test`, `Question`, và `Attempt`. Cụ thể với câu hỏi, lớp trừu tượng `Question` định nghĩa các phương thức trừu tượng `isCorrect()` và `questionType`, sau đó được chuyên biệt hóa bởi `MultipleChoiceQuestion` và `StudentProducedResponseQuestion`. Ngoài ra, tính kế thừa còn được kết hợp với Template Method trên lớp `BaseController`.
 
 ---
 
-## Slide 14 - A Concrete OOP Class: ProdSampleImporter
-Trong dự án, chúng em có một lớp thuần OOP hoàn chỉnh là `ProdSampleImporter` nằm ở file `lib/seed/prodSampleImporter.ts`. Lớp này thể hiện trọn vẹn các đặc tính của một class: có thuộc tính ẩn danh `private readonly dataFilePath`, có constructor nhận đường dẫn tệp tin, và các phương thức public thực hiện chuẩn hóa dữ liệu, giải quyết đường dẫn ảnh offline bằng băm SHA-256, và nạp bài thi vào cơ sở dữ liệu. Lớp này đóng gói toàn bộ pipeline chuyển đổi dữ liệu từ file JSON xuất xưởng sang các Mongoose model.
+## Slide 13 - OOP Pillar 4: Runtime Polymorphic Dispatch
+Trụ cột thứ tư là Tính Đa Hình (Polymorphism) tại thời điểm thực thi. Thay vì dùng các câu lệnh rẽ nhánh `switch-case` hay `if-else` theo loại câu hỏi, phương thức `question.isCorrect(userAnswer)` được điều phối động tới lớp con tương ứng: so sánh chuỗi chính xác với câu hỏi trắc nghiệm MCQ, nhưng lại tính toán dung sai số học và quy đổi phân số tương đương đối với câu hỏi SPR. Tương tự, phương thức `user.canAccessAdmin()` trả về `false` đối với `Student` và `true` đối với `Admin`, thể hiện chuẩn xác nguyên lý thay thế Liskov (LSP).
+
+> **Nếu thầy hỏi:** *Đa hình trong việc chấm điểm được thể hiện ở chỗ nào trong mã nguồn?*  
+> **Trả lời:** *Dạ thưa thầy, khi học sinh nộp bài, phương thức `Attempt.submit(strategy, questions)` chỉ gọi `strategy.score(this, questions)`. Tại runtime, biến `strategy` có thể là `FullLengthScoringStrategy` (chấm theo thang 400-1600) hoặc `SectionalScoringStrategy` (chấm theo thang 200-800) mà bản thân lớp `Attempt` không cần biết chi tiết thuật toán bên trong.*
 
 ---
 
-## Slide 15 - Polymorphism: Honest Codebase Evaluation
-Để hoàn toàn trung thực về mặt kỹ thuật, nhóm em xin làm rõ tính đa hình trong mã nguồn hiện tại. Hiện tại, tính đa hình đang được thể hiện qua cơ chế Structural Typing của TypeScript và các phương thức Active Record dùng chung của Mongoose. Các nhánh phân quyền như user/admin hay chế độ làm bài full/sectional hiện đang được xử lý bằng logic rẽ nhánh có điều kiện, chứ chưa triển khai thành một cây phân cấp class đa hình lúc runtime. Chúng em nhận thức rõ hạn chế này và đã lên thiết kế nâng cấp bằng mẫu Strategy Pattern trong các giai đoạn tiếp theo.
-
-> **Nếu thầy hỏi:** *Thầy thấy trong code có phân quyền admin/user và thi full/sectional, tại sao không dùng tính đa hình (subclass) luôn?*  
-> **Trả lời:** *Dạ thưa thầy, ở quy mô MVP ban đầu, việc dùng discriminated union type (`role: "user" | "admin"`) giúp code gọn nhẹ và phù hợp với NextAuth session. Tuy nhiên, để tuân thủ triệt để nguyên lý Open-Closed (OCP) của OOP, nhóm em đã lên phương án tái cấu trúc bộ tính điểm thành Strategy Pattern với `IScoringStrategy` để mở rộng thêm nhiều loại đề thi mà không cần sửa code cũ.*
+## Slide 14 - Polymorphism in Action: Strategy Pattern for Exam Scoring (UML 02)
+Sơ đồ trên màn hình minh họa cụ thể mẫu thiết kế Strategy cho nghiệp vụ tính điểm bài thi SAT. Interface `ScoringStrategy` định nghĩa chữ ký chuẩn nhận vào `Attempt` và danh sách câu hỏi để tạo ra đối tượng bất biến `ScaledScore`. Lớp `ScoringStrategyFactory` đóng vai trò đóng gói logic khởi tạo strategy dựa trên chế độ thi của bài làm. Nhờ đó, việc mở rộng thêm các thang điểm mới trong tương lai như PSAT 8/9 hay PSAT/NMSQT chỉ cần thêm một lớp mới mà không làm thay đổi lớp `Attempt`.
 
 ---
 
-## Slide 16 - Sequence: Test Initialization & Question Loading (Part 1)
-Sơ đồ tuần tự này mô tả nửa đầu của quy trình thi thử SAT. Khi sinh viên chọn đề thi và truy cập `/test/[id]`, trình duyệt gửi yêu cầu `GET /api/questions` lên API. Yêu cầu đi qua `questionController` rồi đến `questionService` để truy vấn `Question.find()`. Dữ liệu câu hỏi được trả về trình duyệt và ứng dụng khởi tạo `TestEngine`, nạp đồng hồ đếm ngược, đoạn văn đọc hiểu và máy tính Desmos. Toàn bộ câu trả lời của thí sinh được lưu trữ cục bộ trong state React trong suốt thời gian làm bài để đảm bảo tốc độ phản hồi tức thì.
+## Slide 15 - Domain Model: Core Foundation & User RBAC Subtyping (UML 01a1)
+Sơ đồ mô tả nền tảng miền DDD và hệ thống phân cấp người dùng. Lớp cơ sở trừu tượng `Entity<TId>` và `ValueObject` cung cấp nhận dạng và kiểm tra bằng nhau theo cấu trúc. `Email` là Value Object hợp lệ hóa định dạng. Hệ thống phân cấp `User` phân tách thành `Student` với các thuộc tính theo dõi bài thi đã làm, điểm cao nhất và `Admin` với thẩm quyền quản trị hệ thống.
 
 ---
 
-## Slide 17 - Sequence: Test Submission, Scoring & Persistence (Part 2)
-Nửa sau của quy trình bắt đầu khi sinh viên bấm "Submit Test". Trình duyệt gửi toàn bộ câu trả lời lên endpoint kết quả. `resultController` xác minh phiên đăng nhập của thí sinh qua NextAuth, sau đó chuyển sang `resultService`. Tại đây, Service tạo bản ghi Result chứa mảng câu trả lời nhúng, sau đó cập nhật thông tin của sinh viên gồm danh sách đề đã thi, điểm cao nhất và các câu làm sai. Cuối cùng, kết quả trả về màn hình tổng kết kèm điểm số chi tiết.
+## Slide 16 - Domain Model: Test Aggregate & Polymorphic Questions (UML 01a2)
+Sơ đồ tập trung vào đề thi và ngân hàng câu hỏi đa hình. `Test` là Aggregate Root sở hữu các phần thi `Section` thông qua quan hệ hợp thành (Composition `*--`) và chứa danh sách tham chiếu tới `Question`. Lớp cơ sở trừu tượng `Question` định nghĩa phương thức `isCorrect()*` được hiện thực hóa đa hình bởi `MultipleChoiceQuestion` (MCQ) và `StudentProducedResponseQuestion` (SPR).
 
 ---
 
-## Slide 18 - Sequence: User Registration & Password Hashing (Part 1)
-Ở quy trình xác thực người dùng, slide này thể hiện luồng đăng ký tài khoản mới. Khi người dùng nhập thông tin tại trang `/auth`, dữ liệu được gửi đến `POST /api/auth/register`. Hệ thống kiểm tra tính duy nhất của email trong cơ sở dữ liệu, sau đó sử dụng thư viện bcryptjs để sinh salt và băm mật khẩu qua 10 vòng mã hóa trước khi tạo bản ghi User mới với vai trò mặc định `"user"`. Mật khẩu dạng văn bản thuần tuyệt đối không bao giờ được ghi vào cơ sở dữ liệu.
+## Slide 17 - Domain Model: Exam Sitting Aggregate & Deduplicated Error Log (UML 01b1)
+Sơ đồ thực thể quá trình làm bài và sổ tay câu sai. `Attempt` là Aggregate Root quản lý trạng thái buổi thi, sở hữu các bản ghi câu trả lời bất biến `AnswerRecord` và điểm số chuẩn hóa `ScaledScore`. Khi bài thi có câu trả lời sai, hệ thống kích hoạt và ghi nhận lỗi vào `ErrorLogEntry` với cơ chế tự động khử trùng lặp theo cặp người dùng - câu hỏi.
 
 ---
 
-## Slide 19 - Sequence: Credential Login via NextAuth & JWT (Part 2)
-Khi người dùng đăng nhập bằng tài khoản và mật khẩu, hàm authorize của NextAuth được kích hoạt. Điểm mấu chốt của tính đóng gói là hàm này gọi `.select("+password")` để lấy mật khẩu đã băm ra kiểm tra với bcrypt. Sau khi xác thực thành công, callback JWT sẽ gắn định danh và vai trò của người dùng vào token được ký điện tử, gửi về client qua cookie được mã hóa an toàn.
+## Slide 18 - Domain Model: Vocabulary Spaced Repetition Domain (UML 01b2)
+Sơ đồ biểu diễn miền ôn tập từ vựng lặp lại ngắt quãng (Leitner 5-box). `VocabDeck` là Aggregate Root quản lý danh sách thẻ từ `VocabCard`. Nghiệp vụ ôn tập sử dụng mẫu Strategy qua interface `ReviewScheduler` và hiện thực `LeitnerScheduler` để tính toán chính xác chu kỳ khoảng cách hộp và ngày ôn tập kế tiếp.
 
 ---
 
-## Slide 20 - Sequence: Protected Route & Role Resolution (Part 3)
-Slide này thể hiện cách hệ thống giải quyết phiên làm việc khi người dùng truy cập các trang được bảo vệ như `/admin` hoặc xem lại bài thi `/review`. Trình duyệt gửi kèm session cookie, callback `session()` của NextAuth trích xuất `token.role`. Nếu người dùng mang vai trò `admin`, hệ thống cho phép truy cập bảng điều khiển quản trị; nếu là học sinh, quyền truy cập các tính năng luyện thi được kích hoạt.
+## Slide 19 - Sequence: Exam Sitting Submission & Error Log Recording (UML 05)
+Sơ đồ tuần tự widescreen trên màn hình miêu tả trọn vẹn vòng đời khi học sinh nhấn nút nộp bài thi. Yêu cầu đi qua Template Method của `SubmitAttemptController` để xác thực, sau đó chuyển sang `PracticeService`. Service nạp dữ liệu từ các Repository, lấy ra chiến lược chấm điểm từ Factory và gọi `Attempt.submit()`. Sau khi điểm được tính toán và bất biến được khóa lại, Service lưu bài thi, cập nhật điểm cao nhất cho học sinh, tự động ghi các câu sai vào `ErrorLog` và trả về kết quả 200 OK cho client.
 
 ---
 
-## Slide 21 - MVP Demonstration: Production UI & KaTeX Rendering
-Đây là các hình ảnh chụp thực tế từ ứng dụng đang chạy ở kích thước lớn. Hình bên trái thể hiện khả năng render công thức toán học chuyên sâu bằng thư viện KaTeX, hiển thị phân số và số mũ chuẩn xác bên cạnh các câu hỏi SAT thực tế. Hình bên phải là giao diện ma trận câu hỏi xem lại bài thi với các chấm tròn mã màu phân loại câu đúng và sai theo đúng số lượng câu của đề thật. Toàn bộ demo có thể chạy ngay với lệnh duy nhất `npm run demo`.
+## Slide 20 - Sequence: Flashcard Review via Leitner Spaced Repetition (UML 06)
+Slide tiếp theo thể hiện sơ đồ tuần tự của nghiệp vụ ôn tập từ vựng ngắt quãng. Khi học sinh đánh giá mức độ ghi nhớ của một từ, `ReviewVocabCardController` tiếp nhận yêu cầu và gọi tới `VocabService`. Service nạp thẻ từ `VocabCardRepository` và kích hoạt phương thức `card.review()`. Đối tượng `LeitnerScheduler` sẽ tính toán ngày ôn tập tiếp theo dựa trên hộp hiện tại và điểm đánh giá, cập nhật trạng thái thẻ trước khi lưu vào MongoDB.
 
 ---
 
-## Slide 22 - Limitations & OOP Refactoring Roadmap
-Nhìn nhận khách quan, dự án hiện có 3 điểm cần tiếp tục hoàn thiện về mặt OOP: thứ nhất là các service hiện là singleton object literal cần được chuyển thành class hoàn chỉnh; thứ hai là cần bổ sung lớp trừu tượng `BaseService<T>` hỗ trợ các hàm CRUD tổng quát; và thứ ba là áp dụng Strategy Pattern cho bộ tính điểm SAT. Nhóm em đã thiết kế sẵn interface `IScoringStrategy` với hai lớp triển khai `FullLengthSATScoring` và `SectionalScoring` để thay thế hoàn toàn các lệnh `if/else` hiện tại.
+## Slide 21 - Design Patterns Catalog in RonanSAT v2
+Trên slide là bảng tổng hợp các mẫu thiết kế GoF và DDD được áp dụng thực tế trong dự án. Chúng em sử dụng Repository để tách rời database; Strategy và Factory cho thuật toán tính điểm và tạo câu hỏi; Template Method trên BaseController và MongoRepository; Singleton cho Container Composition Root; Dependency Injection qua constructor; và các khái niệm DDD như Value Object (`ScaledScore`, `Email`) cùng Aggregate Root (`Attempt`, `Test`). Các mẫu thiết kế này phối hợp đồng bộ để tạo nên một hệ thống vững chắc và dễ mở rộng.
+
+> **Nếu thầy hỏi:** *Việc áp dụng nhiều Design Pattern như vậy có làm phức tạp hóa mã nguồn không?*  
+> **Trả lời:** *Dạ thưa thầy, ban đầu việc tạo các interface và factory đòi hỏi viết thêm một số file cấu trúc, nhưng lợi ích mang lại vượt trội: toàn bộ mã nguồn nghiệp vụ không còn câu lệnh rẽ nhánh if/else phức tạp, các module hoàn toàn tách rời (loose coupling) và có thể viết unit test độc lập 100% mà không cần khởi động database thật.*
 
 ---
 
-## Slide 23 - Conclusion & Q&A
-Tóm lại, dự án RonanSAT đã đạt được các mục tiêu quan trọng về thiết kế hướng đối tượng: kiến trúc 4 tầng phân lớp rõ ràng, bảo vệ dữ liệu nhạy cảm qua đóng gói nhiều tầng, trừu tượng hóa bằng interface TypeScript, và nạp dữ liệu thi thật thông qua lớp `ProdSampleImporter`. Em xin chân thành cảm ơn thầy đã chú ý lắng nghe bài thuyết trình của nhóm 08. Em rất mong nhận được những nhận xét và câu hỏi góp ý từ thầy ạ!
+## Slide 22 - Product UI: Student Dashboard & Digital Exam Room (Screenshots)
+Về mặt giao diện, hình bên trái là Trang chủ của học sinh với biểu đồ xu hướng điểm số, điểm thi gần nhất 1360 điểm, nút tiếp tục luyện tập và số thẻ từ vựng cần ôn tập hôm nay. Hình bên phải là Phòng thi trực tuyến hiển thị câu hỏi Toán học kèm công thức KaTeX, đồng hồ đếm ngược và thanh điều hướng câu hỏi, tích hợp máy tính đồ thị Desmos trực tiếp trên góc phải màn hình.
 
 ---
 
-## Phụ Lục: Lộ Trình Thao Tác Demo Trực Tiếp (Live Demo Click Path)
+## Slide 23 - Product UI: Result Breakdown & Deduplicated Error Log (Screenshots)
+Sau khi nộp bài, học sinh nhận ngay bảng điểm chi tiết như hình bên trái: tổng điểm 1360 cùng điểm thành phần Reading & Writing 680 và Math 680, đi kèm ma trận 4 module trực quan. Hình bên phải là Sổ tay lỗi sai (Error Log) tự động lưu lại các câu trả lời sai hoặc bỏ qua, cho phép lọc theo kỹ năng, gắn nhãn nguyên nhân sai và làm lại câu hỏi trực tiếp trên màn hình để tự động đổi trạng thái sang "Đã khắc phục".
 
-### 1. Tài Khoản Demo (Đã nạp sẵn trong hệ thống)
-- **Học sinh (Student):** `student@ronansat.com` / `StudentPassword123!`
-- **Quản trị viên (Admin):** `admin@ronansat.com` / `AdminPassword123!`
+---
 
-### 2. Các Bước Thao Tác Trực Tiếp (Demo Walkthrough)
-1. **Khởi chạy ứng dụng:** Chạy lệnh `npm run demo` trên terminal. Hệ thống tự khởi động MongoDB in-memory trên cổng 27018, nạp dữ liệu 2 đề thi và mở web trên `http://localhost:3000`.
-2. **Đăng nhập Học sinh:** Truy cập `/auth`, chọn tab "Sign In", nhập email `student@ronansat.com` và mật khẩu `StudentPassword123!`.
-3. **Mở đề thi SAT:** Trên trang chủ, chọn bài thi *2025 March INT - A* và bấm "Start Test".
-4. **Làm bài & Trải nghiệm công cụ:** 
-   - Duyệt qua câu hỏi Reading & Writing (xem đoạn văn trích dẫn bên trái).
-   - Chuyển sang câu hỏi Math, mở máy tính Desmos tích hợp để vẽ đồ thị hàm số và xem công thức toán LaTeX KaTeX.
-   - Chọn một số đáp án trắc nghiệm và đánh dấu cờ (flag).
-5. **Nộp bài thi:** Bấm "Submit Test" và xác nhận nộp bài. Hệ thống chấm điểm tự động và hiển thị điểm tổng (ví dụ 1520/1600) cùng điểm từng phần.
-6. **Xem lại câu sai (Review):** Bấm "Review Test" để xem lưới ma trận câu hỏi. Bấm vào một câu hỏi sai để mở popup đối chiếu đáp án chọn và lời giải chi tiết.
-7. **Đăng nhập Quản trị viên (Admin):** Đăng xuất, sau đó đăng nhập bằng `admin@ronansat.com` / `AdminPassword123!`.
-8. **Trang Quản trị:** Truy cập `/admin`, xem danh sách đề thi đã tạo, bảng quản lý câu hỏi và giao diện tạo đề thi mới.
+## Slide 24 - Product UI: Performance Statistics & Spaced Repetition Vocab (Screenshots)
+Slide này minh họa 2 tính năng học tập chuyên sâu: Bên trái là Trang phân tích thống kê với biểu đồ Recharts, bản đồ nhiệt hoạt động học tập trong 12 tuần và tỷ lệ chính xác theo từng kỹ năng SAT. Bên phải là màn hình học từ vựng Flashcard theo thuật toán Leitner với 4 nút đánh giá (Again, Hard, Good, Easy) và số lượng thẻ đến hạn ôn tập trong ngày.
+
+---
+
+## Slide 25 - Product UI: Administrative Oversight & Question Authoring (Screenshots)
+Slide này thể hiện giao diện dành cho Quản trị viên: Bên trái là bảng điều khiển tổng quan với các chỉ số KPI về tổng số người dùng, số lượng đề thi, ngân hàng câu hỏi và lượt làm bài. Bên phải là bộ công cụ soạn thảo câu hỏi toàn năng, hỗ trợ nhập đoạn văn đọc hiểu, các phương án lựa chọn, danh sách đáp án chấp nhận được của câu hỏi SPR và lời giải thích chi tiết.
+
+---
+
+## Slide 26 - Automated Testing: 64 Unit Tests Verifying OOP Rules
+Chất lượng kiến trúc hướng đối tượng được minh chứng qua bộ 64 bài unit test tự động phân bổ trên 6 bộ kiểm thử: 16 bài cho thuật toán tính điểm và Value Object `ScaledScore`; 15 bài cho cơ chế so khớp đa hình câu hỏi SPR; 9 bài cho các Application Service; 11 bài cho User, RBAC và Error Log; 8 bài cho thuật toán dãn cách Leitner; và 5 bài kiểm tra tính bất biến của bài thi. Nhờ kiến trúc Port và In-Memory Repository, toàn bộ 64 bài kiểm thử chạy hoàn toàn độc lập với database và hoàn thành trong thời gian chưa đầy 2 giây.
+
+> **Nếu thầy hỏi:** *Bộ unit test kiểm tra những bất biến nghiệp vụ nào của OOP?*  
+> **Trả lời:** *Dạ thưa thầy, các unit test xác minh cụ thể rằng: một khi bài thi đã chuyển trạng thái `submitted`, mọi nỗ lực gọi `recordAnswer()` đều phải ném ra ngoại lệ `InvariantViolationError`; câu hỏi SPR chấp nhận các biểu diễn tương đương như `1/2`, `0.5`, `.5`; và thuật toán Leitner tính toán ngày ôn tập chính xác theo từng hộp.*
+
+---
+
+## Slide 27 - Architecture Evolution: v1 MVP vs. v2 OOP Edition
+Bảng so sánh trên slide tóm tắt sự tiến hóa kiến trúc vượt bậc giữa 2 phiên bản: Từ các đối tượng hướng thủ tục và Mongoose document trần trụi ở bản v1, phiên bản v2 đã chuyển hóa hoàn toàn sang các Class hướng đối tượng với Dependency Injection; logic tính điểm và câu hỏi chuyển từ rẽ nhánh thủ tục sang mẫu thiết kế Strategy và Đa hình; ranh giới lưu trữ được chuẩn hóa bằng Repository Pattern; và toàn bộ vòng đời đối tượng được quản lý tập trung bởi Composition Root.
+
+---
+
+## Slide 28 - Technical Limitations & Future Engineering Roadmap
+Với tinh thần kỹ thuật trung thực, nhóm em nhận diện rõ các giới hạn kỹ thuật hiện tại của phiên bản demo: Công thức quy đổi điểm số hiện là phép ánh xạ tuyến tính chuẩn hóa chứ chưa cài đặt mô hình Lý thuyết Ứng đáp Câu hỏi 3 tham số (IRT) của College Board; cơ sở dữ liệu dùng mongodb-memory-server để phục vụ chấm điểm tại chỗ; và phiên đăng nhập dùng JWT. Định hướng tương lai của nhóm là nâng cấp cơ chế thi thích ứng đa tầng (MST), bổ sung Domain Events để xử lý bất đồng bộ, và áp dụng mẫu Transactional Outbox.
+
+---
+
+## Slide 29 - Conclusion & Acknowledgments (Q&A)
+Tóm lại, dự án RonanSAT v2 đã minh chứng việc áp dụng thành công các nguyên lý Lập trình hướng đối tượng, kiến trúc phân lớp sạch và các Design Pattern chuẩn mực vào một bài toán thực tế phức tạp. Hệ thống vừa đảm bảo tính kỷ luật trong thiết kế phần mềm, vừa sở hữu sản phẩm chạy thực tế với độ hoàn thiện cao và 64 bài kiểm thử tự động. Em xin chân thành cảm ơn thầy và các bạn đã lắng nghe. Nhóm em rất sẵn sàng đón nhận các câu hỏi phản biện từ thầy!
+
+---
+
+## Kịch Bản Thao Tác Demo Trực Tiếp (Live Demo Click Path)
+
+Khi thực hiện demo trực tiếp cho thầy xem, người thuyết trình thực hiện tuần tự theo luồng chuẩn sau:
+
+1. **Đăng nhập Học sinh (Student Login):**
+   - Mở trình duyệt tại đường dẫn `http://localhost:3000/login`.
+   - Đăng nhập với tài khoản học sinh thử nghiệm: `student@example.com` / `student123`.
+2. **Trang chủ Học sinh (Student Home):**
+   - Giới thiệu màn hình Dashboard: Thẻ điểm gần nhất (1360), biểu đồ xu hướng điểm số (Score Progression sparkline), số lỗi sai cần xem lại (Error Log count), và số từ vựng đến hạn ôn tập hôm nay.
+3. **Vào phòng thi phân đoạn Toán (Practice Sectional Math):**
+   - Nhấn nút "Continue Practice" hoặc vào menu **Practice** $\rightarrow$ Chọn chế độ **Sectional Practice** $\rightarrow$ Chọn môn **Math** của đề thi số 1.
+4. **Làm bài thi trắc nghiệm MCQ & điền số SPR:**
+   - Tại câu hỏi số 1 (MCQ): Chọn một phương án trả lời. Giới thiệu thanh công cụ máy tính đồ thị Desmos tích hợp trên góc phải và mở giao diện tính toán.
+   - Chuyển sang câu hỏi điền số (SPR): Nhập đáp án phân số hoặc số thập phân (ví dụ `1/2` hoặc `0.5`). Nhấn "Next" để chứng minh tính năng lưu tạm thời qua `RecordAnswerController`.
+5. **Nộp bài thi (Submit Exam):**
+   - Nhấn nút "Submit Test" trên thanh điều hướng $\rightarrow$ Xác nhận nộp bài. Hệ thống kích hoạt chuỗi xử lý: `SubmitAttemptController` $\rightarrow$ `PracticeService` $\rightarrow$ `FullLengthScoringStrategy` / `SectionalScoringStrategy` $\rightarrow$ Lưu `Attempt`.
+6. **Xem trang kết quả chi tiết (Result Detail):**
+   - Màn hình tự động điều hướng sang `/results/[id]`: Trình bày điểm quy đổi SAT (Scaled Score), tỷ lệ chính xác theo module, và ma trận danh sách câu đúng/sai trực quan.
+7. **Khắc phục lỗi sai trong Sổ tay lỗi (Error Log Retry):**
+   - Nhấp vào "Open Error Log" từ trang kết quả hoặc chọn menu **Error Log**.
+   - Xem câu hỏi vừa làm sai đã được tự động thêm vào danh sách mà không bị trùng lặp.
+   - Nhấn "Retry", nhập đáp án chính xác để câu hỏi tự động chuyển sang trạng thái "Resolved".
+8. **Học từ vựng ngắt quãng (Vocab Spaced Repetition):**
+   - Chuyển sang mục **Vocab** $\rightarrow$ Chọn một bộ từ vựng (ví dụ "Advanced SAT Words") $\rightarrow$ Nhấn "Study Due Cards".
+   - Lật thẻ từ vựng xem định nghĩa và ví dụ, sau đó nhấn nút đánh giá "Good". Trình bày việc hệ thống gọi `VocabCard.review()` chuyển thẻ sang Hộp Leitner tiếp theo.
+9. **Đăng nhập Quản trị viên (Admin Login):**
+   - Đăng xuất tài khoản học sinh $\rightarrow$ Đăng nhập bằng tài khoản quản trị: `admin@example.com` / `admin123`.
+10. **Chỉnh sửa câu hỏi trong Admin Portal (Admin Question Authoring):**
+    - Vào menu **Admin** $\rightarrow$ Tab **Questions Editor**.
+    - Mở một câu hỏi bất kỳ, chỉnh sửa nội dung hoặc thêm đáp án được chấp nhận cho câu hỏi SPR, sau đó nhấn "Save" để chứng minh cơ chế phân quyền RBAC và thao tác CRUD an toàn.

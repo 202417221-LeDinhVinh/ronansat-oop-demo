@@ -1,0 +1,46 @@
+classDiagram
+    direction LR
+
+    class BaseController {
+        <<abstract>>
+        #requiredRole: Role
+        +handle(req, context) Promise~NextResponse~
+        #authenticate() Promise~Session~
+        #authorize(session) void
+        #parseAndValidate(req) Promise~TInput~
+        #execute(input, session, context)* Promise~TOutput~
+    }
+
+    class SubmitAttemptController {
+        -practiceService: PracticeService
+        #execute(input, session, context) Promise~object~
+    }
+
+    class RecordAnswerController {
+        -practiceService: PracticeService
+        #execute(input, session, context) Promise~object~
+    }
+
+    class ReviewVocabCardController {
+        -vocabService: VocabService
+        #execute(input, session, context) Promise~object~
+    }
+
+    class PracticeService {
+        +startAttempt(userId, testId, mode) Promise~Attempt~
+        +recordAnswer(userId, attemptId, questionId, answer) Promise~object~
+        +submitAttempt(attemptId, userId) Promise~Attempt~
+    }
+
+    class VocabService {
+        +getDueCards(userId, deckId) Promise~VocabCard[]~
+        +reviewCard(userId, cardId, grade) Promise~object~
+    }
+
+    BaseController <|-- SubmitAttemptController
+    BaseController <|-- RecordAnswerController
+    BaseController <|-- ReviewVocabCardController
+
+    SubmitAttemptController --> PracticeService : practiceService
+    RecordAnswerController --> PracticeService : practiceService
+    ReviewVocabCardController --> VocabService : vocabService

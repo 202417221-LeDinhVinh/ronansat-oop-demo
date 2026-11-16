@@ -1,0 +1,28 @@
+%%{init: {
+  "sequence": {
+    "mirrorActors": false
+  }
+}}%%
+sequenceDiagram
+    actor Student
+    participant C as ReviewVocabCardController
+    participant S as VocabService
+    participant R as Repositories
+    participant V as VocabCard
+    participant LS as LeitnerScheduler
+
+    Student->>C: POST /api/vocab/cards/:id/review { grade: "good" }
+    Note over C: BaseController.handle():<br/>auth & parseAndValidate()
+    C->>S: reviewCard(userId, cardId, grade)
+    S->>R: cardRepo.findById(cardId)
+    R-->>S: card: VocabCard
+    S->>V: review(grade, scheduler, now)
+    activate V
+    V->>LS: calculateNextReview(box, grade, now)
+    LS-->>V: { nextBox: 2, intervalDays: 3 }
+    Note over V: State mutation:<br/>box = 2, nextReviewDate = now + 3d
+    deactivate V
+    S->>R: cardRepo.save(card)
+    R-->>S: card: VocabCard
+    S-->>C: card
+    C-->>Student: 200 OK (box: 2, intervalDays: 3)

@@ -1,0 +1,52 @@
+classDiagram
+    direction LR
+
+    class Entity~TId~ {
+        <<abstract>>
+        #_id: TId
+        +id() TId
+        +equals(other) boolean
+    }
+
+    class ValueObject {
+        <<abstract>>
+        #props: Readonly
+        +equals(other) boolean
+    }
+
+    class Email {
+        -value: string
+        +value() string
+        +toString() string
+        +equals(other) boolean
+    }
+
+    class User {
+        <<abstract>>
+        #_email: Email
+        #_name: string
+        #_role: Role
+        +email() Email
+        +name() string
+        +role() Role
+        +canAccessAdmin()* boolean
+    }
+
+    class Student {
+        -_highestScore: number
+        -_testsTaken: string[]
+        +highestScore() number
+        +testsTaken() string[]
+        +recordTestCompletion(testId, score) void
+        +canAccessAdmin() boolean
+    }
+
+    class Admin {
+        +canAccessAdmin() boolean
+    }
+
+    Entity <|-- User
+    User <|-- Student
+    User <|-- Admin
+    ValueObject <|-- Email
+    User "1" *-- "1" Email : has

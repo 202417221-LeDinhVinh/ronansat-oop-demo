@@ -1,0 +1,49 @@
+classDiagram
+    direction TB
+
+    class BaseController {
+        <<abstract>>
+        #requiredRole: Role
+        +handle(req, context) Promise~NextResponse~
+        #authenticate() Promise~Session~
+        #authorize(session) void
+        #parseAndValidate(req) Promise~TInput~
+        #execute(input, session, context)* Promise~TOutput~
+    }
+
+    class RegisterController {
+        -authService: AuthService
+        #execute(input, session, context) Promise~object~
+    }
+
+    class AdminTestsController {
+        -testService: TestService
+        #execute(input, session, context) Promise~object~
+    }
+
+    class AdminMetricsController {
+        -adminService: AdminService
+        #execute(input, session, context) Promise~object~
+    }
+
+    class AuthService {
+        +register(dto) Promise~User~
+    }
+
+    class TestService {
+        +getAllTests() Promise~Test[]~
+        +getTestById(id) Promise~Test~
+    }
+
+    class AdminService {
+        +getOverviewMetrics() Promise~object~
+        +updateUserRole(userId, role) Promise~User~
+    }
+
+    BaseController <|-- RegisterController
+    BaseController <|-- AdminTestsController
+    BaseController <|-- AdminMetricsController
+
+    RegisterController --> AuthService : authService
+    AdminTestsController --> TestService : testService
+    AdminMetricsController --> AdminService : adminService

@@ -1,0 +1,33 @@
+flowchart LR
+    Admin["«actor»<br/>Admin"]
+
+    subgraph SYSTEM["RonanSAT Admin Boundary"]
+        direction LR
+
+        subgraph G1["Platform & Assessment Authoring"]
+            direction TB
+            A1(["View Platform KPI Metrics"])
+            A2(["Manage Standardized Tests"])
+            A3(["Author Exam Questions"])
+            A4(["Configure SPR Tolerances"])
+            A3 -.->|«include»| A4
+        end
+
+        subgraph G2["User Administration & Content Curation"]
+            direction TB
+            A5(["Manage User Accounts"])
+            A6(["Assign User Roles"])
+            A7(["Curate System Vocab Decks"])
+            A8(["Publish Verified Flashcards"])
+            A7 -.->|«include»| A8
+        end
+
+        G1 ~~~ G2
+    end
+
+    Admin --- A1
+    Admin --- A2
+    Admin --- A3
+    Admin --- A5
+    Admin --- A6
+    Admin --- A7

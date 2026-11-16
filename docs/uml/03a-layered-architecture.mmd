@@ -1,0 +1,40 @@
+classDiagram
+    direction LR
+
+    class BaseController {
+        <<abstract>>
+        #requiredRole: Role
+        +handle(req, context) Promise~NextResponse~
+        #authenticate() Promise~Session~
+        #authorize(session) void
+        #parseAndValidate(req) Promise~TInput~
+        #execute(input, session, context)* Promise~TOutput~
+    }
+
+    class SubmitAttemptController {
+        -practiceService: PracticeService
+        #execute(input, session, context) Promise~object~
+    }
+
+    class RegisterController {
+        -authService: AuthService
+        #execute(input, session, context) Promise~object~
+    }
+
+    class PracticeService {
+        +submitAttempt(attemptId, userId) Promise~Attempt~
+    }
+
+    class AuthService {
+        +register(dto) Promise~User~
+    }
+
+    class VocabService {
+        +reviewCard(userId, cardId, grade) Promise~object~
+    }
+
+    BaseController <|-- SubmitAttemptController
+    BaseController <|-- RegisterController
+
+    SubmitAttemptController --> PracticeService : practiceService
+    RegisterController --> AuthService : authService

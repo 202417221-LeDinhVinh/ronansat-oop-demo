@@ -1,249 +1,245 @@
-# RonanSAT — SAT Practice Platform (OOP Lab Demo)
+# RonanSAT v2 - OOP Edition
 
-**Presenter:** Le Vinh — 202417221 | Group 08  
-**Course:** Object-Oriented Programming Lab | School of Information and Communication Technology (SoICT) — HUST  
+RonanSAT is a full-stack SAT practice platform used as the semester project for the
+Object-Oriented Programming lab. It reproduces the Bluebook-style digital SAT flow end to end:
+timed Reading & Writing and Math modules, multiple-choice and student-produced-response
+questions, scaled scoring, result review, an error log, analytics, spaced-repetition
+vocabulary, and an admin studio.
 
-A modern full-stack SAT practice platform designed and structured under Object-Oriented Programming (OOP) and Layered Architecture principles. This project serves as an MVP demonstration featuring simulated digital SAT testing, automated scoring, performance analytics, leaderboards, an admin dashboard, and an AI-powered tutor.
+This is **v2**, a ground-up rewrite of the v1 MVP around a layered, dependency-inverted
+object-oriented architecture. See [v1 vs v2](#v1-vs-v2) below.
 
----
+## Features
 
-## 1. Project Overview
+| Area | Route | What it does |
+| --- | --- | --- |
+| Home | `/` | Greeting, latest score, best score, mistakes to review, vocabulary due today, recent results, score-trend sparkline, and a practice CTA. |
+| Practice | `/practice` | Test library with two modes: full-length (all four modules in order with per-module timers) and sectional (one section + module). The test room supports MCQ, SPR numeric equivalence, a per-module timer, question navigator, mark-for-review, Desmos for Math, and a passage/question split view for Reading & Writing. |
+| Results | `/results`, `/results/[id]` | Attempt history and a detail page with the total score (400-1600) or section score (200-800), per-module correct counts, a correct/incorrect/omitted question grid, and a review dialog with your answer, the correct answer, and the explanation. |
+| Error log | `/error-log` | Every incorrect or omitted question across attempts, deduplicated per question. Filter by section, domain, skill, reason, and status; tag a mistake reason, save a note, mark it resolved, and retry the question inline. A correct retry resolves the entry automatically. |
+| Statistics | `/statistics` | Full-length score trend chart (400-1600), a separate sectional-drill score view (200-800), accuracy by section and by domain, questions answered, a 12-week activity heatmap, and strongest/weakest skills. |
+| Vocab | `/vocab` | System and personal decks, card CRUD, a flashcard study session with Leitner 1-5 spaced repetition (Again / Hard / Good / Easy), and a cards-due-today counter. |
+| Admin | `/admin` | Admin-only studio with overview metrics, test CRUD, MCQ/SPR question CRUD, user roles, and system vocabulary decks. Access is enforced server-side by the controller layer. |
 
-RonanSAT simulates the digital SAT testing experience, allowing students to take timed adaptive-style tests across Reading & Writing and Math modules, utilize interactive tools such as the Desmos graphing calculator, submit answers for immediate grading, review incorrect answers with in-depth explanations, and ask an AI Tutor for conceptual guidance.
+## How to run
 
-Administrators can author new practice tests, append questions with passages and options, and manage the student Hall of Fame.
+Requirements: Node.js 20+ and npm. No API keys, external database, or network services are
+needed at runtime.
 
-### Tech Stack
-- **Framework:** Next.js 16.1.6 (App Router, Turbopack)
-- **Frontend:** React 19.2.3, TypeScript 5, Tailwind CSS 4, Ant Design, Lucide React
-- **Typography & Math:** KaTeX 0.16.22 for LaTeX math rendering (`\( \)` inline & `\[ \]` display)
-- **Security:** DOMPurify (`isomorphic-dompurify`) strict HTML sanitization allow-list
-- **Backend:** Next.js Route Handlers (RESTful architecture)
-- **Database:** MongoDB via Mongoose 9.2.2 (with `mongodb-memory-server` for zero-config demonstration)
-- **Authentication:** NextAuth.js 4 (JWT session strategy, bcryptjs password hashing)
-- **Validation:** Zod 4 runtime schema validation
-- **AI Tutoring:** Google Generative AI (Gemini 2.5 Flash) with offline fallback
-
----
-
-## 2. Real Production Sample Data & Importer
-
-### A. Production Sample Data Source
-The demo is seeded with real SAT practice exams exported from the production PostgreSQL platform (`data/prod-sample-tests.json`):
-1. **2025 March INT - A:** 84 multiple-choice questions across 4 modules (Reading & Writing M1: 27, Reading & Writing M2: 27, Math M1: 15, Math M2: 15).
-2. **2025 October US - A:** 87 multiple-choice questions across 4 modules (Reading & Writing M1: 27, Reading & Writing M2: 27, Math M1: 16, Math M2: 17).
-
-> **Note on Free-Response (`spr`):** In this app version, Student-Produced Response (`spr`) questions without multiple-choice options are skipped by the importer, and each section's `questionsCount` is dynamically recomputed from the actual questions imported.
-
-### B. OOP Importer Architecture (`lib/seed/prodSampleImporter.ts`)
-The `ProdSampleImporter` class encapsulates the translation logic from external database schemas onto existing Mongoose domain models:
-- **`ProdSampleImporter` Class:**
-  - `loadRawData()`: Reads and parses `data/prod-sample-tests.json`.
-  - `mapSectionName(name)`: Normalizes `"Verbal"` to `"Reading and Writing"` while preserving `"Math"`.
-  - `resolveImageUrl(imageUrl)`: Downloads and caches images offline to `public/demo-figures/` via `scripts/fetch-demo-figures.ts`, serving them locally as `/demo-figures/<hash>.png` without internet reliance.
-  - `formatChoicesAndAnswer(rawQ)`: Sorts options by `display_order` into `choices: string[]`, maps `question_correct_options.option_id` onto the matching option text for `correctAnswer`.
-  - `mapQuestion(rawQ, testId, sectionName, moduleNumber)`: Maps raw question fields, handling LaTeX formatting, passages, difficulty, points, and local images.
-  - `importTest(rawTest)`: Sorts sections by `display_order`, sorts questions by `position`, recomputes section counts, and saves `Test` and `Question` records atomically.
-  - `importAll()`: Orchestrates batch import of all production sample tests.
-
-### C. RichText LaTeX & HTML Display (`components/RichText.tsx`)
-All user-facing question text, reading passages, multiple-choice options, and review explanations are rendered through a single unified `RichText` component:
-- **KaTeX Integration:** Parses inline delimiters `\( ... \)` and block display delimiters `\[ ... \]`, as well as escaped dollar signs (`\$`) into mathematical formulas.
-- **HTML Sanitization:** Employs `isomorphic-dompurify` configured with an explicit allow-list (`<p>`, `<strong>`, `<em>`, `<u>`, `<br>`, `<sup>`, `<sub>`, `<table>`, `<th>`, `<td>`, plus KaTeX MathML/SVG nodes) to strictly eliminate XSS risks while preserving formatting and tables.
-
----
-
-## 3. Object-Oriented Programming (OOP) Architecture
-
-The application design incorporates key OOP principles across its layers:
-
-### A. Encapsulation
-- **Service Layer Encapsulation:** Business logic is encapsulated inside dedicated domain services (`testService`, `questionService`, `resultService`, `chatService`, `userService`). API routes do not query the database directly; instead, they interact with service methods that manage database connections (`dbConnect()`), transactional integrity, and entity relationships.
-- **Controller Encapsulation:** Controllers (`testController`, `questionController`, `resultController`, `chatController`, `userController`) encapsulate HTTP parameter extraction, authorization checks, and standard HTTP response formatting.
-- **Validation Encapsulation:** Zod schemas (`TestValidationSchema`, `QuestionValidationSchema`, `ResultValidationSchema`, `UserValidationSchema`) encapsulate all data invariants, boundary constraints, and type coercion.
-
-### B. Abstraction via Interfaces
-- **TypeScript Domain Interfaces:** Strong abstraction barriers separate data structures from implementation details:
-  - `IUser` (`lib/models/User.ts`)
-  - `ITest` & `Section` (`lib/models/Test.ts`)
-  - `IQuestion` (`lib/models/Question.ts`)
-  - `IResult` & `IAnswer` (`lib/models/Result.ts`)
-  - `IChat` & `IMessage` (`lib/models/Chat.ts`)
-  - `IStudent` (`lib/models/studentCard.ts`)
-- Consumers interact with these interfaces without coupling to internal Mongoose BSON serialization or database-specific mechanisms.
-
-### C. Layered Separation of Concerns
-The application follows a strict 4-tier layered architecture:
-1. **Presentation Layer (Next.js Pages & Client Components):** UI state, rendering, event handling (`app/`, `components/`).
-2. **API Route Layer:** HTTP endpoint handlers (`app/api/*/route.ts`).
-3. **Controller Layer:** Request parsing and security verification (`lib/controllers/`).
-4. **Service & Domain Layer:** Core business logic, scoring, and analytics (`lib/services/`).
-5. **Persistence & Data Access Layer:** Mongoose models and Zod schemas (`lib/models/`, `lib/schema/`).
-
-### D. Inheritance and Composition
-- **Interface Inheritance:** Model interfaces extend Mongoose's base `Document` interface (e.g. `interface IQuestion extends Document`), inheriting document life-cycle hooks, `.save()`, `.populate()`, and MongoDB ObjectID generation. (Note: Domain models do not use class inheritance; they leverage TypeScript interface inheritance).
-- **Schema Composition (Embedded Documents):**
-  - `Test` **composes** multiple `Section` entities (`sections: [SectionSchema]`).
-  - `Result` **composes** an array of `IAnswer` entities (`answers: [AnswerSchema]`).
-  - `Chat` **composes** an array of `IMessage` entities (`messages: [MessageSchema]`).
-- **Entity Aggregation / Association:** `Test` aggregates references to `Question` documents via ObjectIds (`questions: [{ type: Schema.Types.ObjectId, ref: "Question" }]`), allowing questions to be queried independently or populated when needed.
-
-### E. Concrete Class Implementation (`ProdSampleImporter`)
-- While domain models use Mongoose schemas and services use structured object literals, the project features a full concrete TypeScript class: **`ProdSampleImporter`** (`lib/seed/prodSampleImporter.ts`).
-- **Encapsulation:** Houses `private readonly dataFilePath: string` with constructor initialization.
-- **Methods:** Encapsulates the entire translation pipeline (`loadRawData`, `mapSectionName`, `resolveImageUrl`, `formatChoicesAndAnswer`, `mapQuestion`, `importTest`, `importAll`) from raw PostgreSQL export to Mongoose domain models.
-
-### F. Polymorphism — Honest Evaluation & Refactoring Roadmap
-- **Current State:** The MVP codebase currently relies on TypeScript interfaces, Mongoose query methods, and structured service/controller objects. It does **not** yet implement runtime class inheritance or polymorphic class hierarchies. Features such as role separation (`role: "user" | "admin"`) and test modes (`isSectional: boolean`) are implemented via union types and conditional logic rather than subclass polymorphism.
-- **Planned Polymorphic Roadmap:**
-  1. **Service Class Hierarchy:** Refactor object literal services into classes extending an `abstract class BaseService<T extends Document>` with generic CRUD methods (`findById`, `findAll`, `create`).
-  2. **Strategy Pattern for Scoring:** Introduce an `IScoringStrategy` interface with polymorphic concrete classes (`FullLengthScoringStrategy` and `SectionalScoringStrategy`) to eliminate conditional score computation.
-
----
-
-## 4. How to Run (One-Command MVP)
-
-The demo requires **zero external accounts or MongoDB Atlas setup**. It uses `mongodb-memory-server` to spin up an in-memory database on a fixed local port and automatically seeds demo data.
-
-### Step 1: Install Dependencies
 ```bash
 npm install
-```
-
-### Step 2: Download Demo Figures (Offline Caching)
-```bash
-npx tsx scripts/fetch-demo-figures.ts
-```
-
-### Step 3: Launch the Demo
-```bash
 npm run demo
 ```
 
-This single command will:
-1. Start an in-memory MongoDB instance on fixed port `27018`.
-2. Seed both production SAT practice tests (`2025 March INT - A` and `2025 October US - A`), past student results (Scores: 1520 & 1540), sectional practices, leaderboard entries, and student cards.
-3. Automatically configure `MONGODB_URI`, `NEXTAUTH_URL=http://localhost:3000`, and `NEXTAUTH_SECRET`.
-4. Launch the Next.js development server on `http://localhost:3000`.
-5. Shut down all child processes and the in-memory database cleanly upon `Ctrl+C`.
+`npm run demo` starts an in-memory MongoDB on port `27018`, seeds the full demo dataset, and
+launches the Next.js dev server on `http://localhost:3000`. Both ports must be free. Open the
+URL and sign in with one of the demo accounts below.
 
-> **Note on Real MongoDB:** If you prefer connecting to a real MongoDB instance, specify `MONGODB_URI` in `.env.local`. The demo script will detect it and connect to your external database instead of the in-memory server.
+Run the unit test suite with:
 
----
+```bash
+npm test
+```
 
-## 5. Demo Accounts
+Other useful commands: `npm run build` (production build), `npm run seed` (seed an already
+running MongoDB), and `npx tsx scripts/verify-endpoints.ts` (API/page status verification
+against a running demo).
 
-| Role | Email | Password | Access Rights |
-| :--- | :--- | :--- | :--- |
-| **Admin** | `admin@ronansat.com` | `AdminPassword123!` | Full admin dashboard (`/admin`), test authoring, question creation, Hall of Fame management. |
-| **Student** | `student@ronansat.com` | `StudentPassword123!` | Practice tests, Desmos calculator, submission, result review, leaderboard, AI tutor. |
+## Demo accounts
 
----
+| Role | Email | Password |
+| --- | --- | --- |
+| Admin | `admin@ronansat.com` | `AdminPassword123!` |
+| Student | `student@ronansat.com` | `StudentPassword123!` |
 
-## 6. Screenshots of Application Features
+The seeded student has eight past attempts spread over six weeks (five full-length attempts
+improving from 1050 to 1360, plus three sectional drills), tagged and untagged error-log
+entries, and vocabulary study history so some cards are due today.
 
-The following screenshots are verified and stored under [`docs/screenshots/`](docs/screenshots/):
+## Tech stack
 
-### 1. Reading and Writing Question with Passage
-*Shows formatted passage on the left panel with underlined text, and question prompt with multiple-choice bubbles on the right panel.*
-![Reading and Writing Passage](docs/screenshots/01-reading-writing-passage.png)
+- Next.js 16 (App Router, Turbopack) and React 19
+- TypeScript 5 with `strict: true`
+- Tailwind CSS v4 with design tokens in `app/globals.css`
+- MongoDB through Mongoose, with `mongodb-memory-server` for the zero-config demo
+- NextAuth credentials provider with bcrypt password hashing
+- Zod for HTTP request validation
+- Recharts for analytics, KaTeX for question math, self-hosted `@fontsource` fonts
+- Vitest for unit tests
 
----
+## Architecture
 
-### 2. Math Question with KaTeX Typography
-*Shows pure KaTeX mathematical typesetting for functions, variables, and inequalities without raw delimiters.*
-![Math Question with LaTeX](docs/screenshots/02-math-latex.png)
+The code is split into four layers under `lib/`, plus a composition root. Dependencies point
+inward only: the domain knows nothing about the other layers; the application layer knows the
+domain and its own port interfaces; infrastructure implements those ports; HTTP adapts
+requests to application services. Next.js routes and React pages contain no business logic and
+no Mongoose calls.
 
----
+```
+app/                                Next.js App Router
+  api/**/route.ts                   thin route handlers (delegate to one controller)
+  page.tsx, practice/, results/,    React pages and layouts (UI only)
+  error-log/, statistics/, vocab/,
+  admin/, auth/, test/[id]/
+components/                         shared UI primitives and product components
+lib/
+  domain/                           pure TypeScript, no mongoose / next imports
+    shared/                         Entity<TId>, ValueObject, DomainError hierarchy
+    user/                           User (abstract) -> Student, Admin; Email; Role
+    test/                           Test, Section, TestMode
+    question/                       Question (abstract) -> MultipleChoiceQuestion,
+                                    StudentProducedResponseQuestion; QuestionFactory
+    attempt/                        Attempt (aggregate root), AnswerRecord, AttemptStatus
+    scoring/                        ScoringStrategy, full-length/sectional strategies,
+                                    ScoringStrategyFactory, ScaledScore
+    errorlog/                       ErrorLogEntry, MistakeReason, ErrorLogStatus
+    vocab/                          VocabDeck, VocabCard, ReviewScheduler, LeitnerScheduler
+    statistics/                     read models for the statistics page
+  application/                      use-case services and ports (interfaces)
+    services/                       AuthService, TestService, PracticeService,
+                                    ResultService, ErrorLogService, StatisticsService,
+                                    VocabService, AdminService
+    ports/                          IRepository and repository interfaces, PasswordHasher, Clock
+  infrastructure/                   adapters to the outside world
+    persistence/                    Mongoose schemas, MongoRepository<TEntity, TDoc>,
+                                    Mongo*Repository implementations, InMemory*Repository fakes
+    security/                       BcryptPasswordHasher, SystemClock
+    seed/                           DemoSeeder, ProdSampleImporter
+  http/                             HTTP adapter
+    BaseController.ts               template-method request pipeline
+    controllers/                    one controller class per use case / resource
+    errors/                         HttpErrorMapper (DomainError -> HTTP status)
+  container.ts                      composition root / singleton wiring
+lib/authOptions.ts                  NextAuth configuration using AuthService
+scripts/demo.ts                     zero-config demo launcher
+scripts/verify-endpoints.ts         endpoint and page verification script
+tests/unit/                         Vitest unit tests (domain and application)
+```
 
-### 3. Math Question with Graph Figure & KaTeX Fractions
-*Displays local figure `/demo-figures/...` rendered offline alongside function notation and vertical fractions.*
-![Math Question with Graph Figure](docs/screenshots/03-math-latex-with-figure.png)
+Dependency rule: `domain <- application <- infrastructure/http <- container/routes`. The domain
+layer compiles with no framework dependency. The application layer never imports Mongoose.
+Controllers depend on application services, and services depend only on interfaces. The
+container is the only place that constructs concrete repositories, hashers, clocks, services,
+and controllers.
 
----
+More detail, including a step-by-step request trace and a feature checklist, is in
+[docs/v2/ARCHITECTURE.md](docs/v2/ARCHITECTURE.md).
 
-### 4. Reading & Writing Question with Table Figure
-*Shows offline table figure and passage on the left panel, with logical completion choices on the right.*
-![Reading & Writing with Table Figure](docs/screenshots/04-reading-writing-with-table-figure.png)
+## OOP in this project
 
----
+Every claim below is backed by code in this repository.
 
-### 5. Review Mistakes Grid
-*Full-length SAT review grid displaying color-coded answer bubbles (correct/incorrect) across all 4 modules with dynamic counts (27, 27, 15, 15).*
-![Review Mistakes Grid](docs/screenshots/05-review-page.png)
+| Concept | Class / file | Explanation |
+| --- | --- | --- |
+| Abstraction (abstract class) | `lib/domain/shared/Entity.ts` | `Entity<TId>` owns identity and identity-based equality; all aggregates extend it. |
+| Abstraction (interfaces) | `lib/application/ports/` | Services depend on `IRepository`, `IUserRepository`, `IAttemptRepository`, `PasswordHasher`, `Clock`, and the other ports instead of concrete implementations. |
+| Encapsulation / invariants | `lib/domain/attempt/Attempt.ts` | State is private; `recordAnswer()` rejects writes after submission and `submit(strategy, questions)` rejects a second submission. State is exposed through getters only. |
+| Encapsulation / value objects | `lib/domain/user/Email.ts`, `lib/domain/scoring/ScaledScore.ts`, `lib/domain/test/Section.ts` | Immutable value objects that validate in their constructors: email format, score bounds (400-1600 or 200-800), and section shape. |
+| Inheritance | `Student` / `Admin` extend `User`; `MultipleChoiceQuestion` / `StudentProducedResponseQuestion` extend `Question`; `Mongo*Repository` extend `MongoRepository`; controllers extend `BaseController`; error types extend `DomainError`. | Shared behavior lives in the base class; subclasses add or override the parts that differ. |
+| Polymorphism | `question.isCorrect(answer)` in `Question` subclasses; `ScoringStrategy.score(attempt, questions)`; `user.canAccessAdmin()`; repository interfaces with Mongo and in-memory implementations. | The caller uses the base type, and the concrete subclass or implementation decides the behavior. |
+| Composition | `Test` has `Section[]`; `Attempt` has `AnswerRecord[]`; `VocabDeck` contains `VocabCard[]`; `ErrorLogEntry` references the latest attempt and question. | Aggregates are built from smaller domain objects instead of primitive bags. |
+| Dependency Injection | Service constructors in `lib/application/services/` | Every dependency is passed in through the constructor and wired once in `lib/container.ts`. |
+| Template Method | `BaseController.handle()` and `MongoRepository.save()/findById()` | The base class fixes the algorithm; subclasses implement `execute()` or the `toEntity()` / `toDocument()` hooks. |
+| Factory | `ScoringStrategyFactory.getStrategy(mode)`, `QuestionFactory.fromPersistence()` | Object creation is centralized and returns the correct subtype. |
 
----
+## Design patterns
 
-### 6. Review Question Modal with Explanation
-*Displays question breakdown, chosen answer vs. correct answer, and detailed pedagogical explanation.*
-![Review Question Modal](docs/screenshots/06-review-question-popup.png)
+| Pattern | Where | Role |
+| --- | --- | --- |
+| Repository | `IRepository<T, TId>` plus `MongoRepository` and `Mongo*Repository` in `lib/infrastructure/persistence/`; `InMemory*Repository` in `persistence/inmemory/` | Keeps persistence out of the domain and lets tests swap in-memory fakes. |
+| Strategy | `FullLengthScoringStrategy`, `SectionalScoringStrategy`, `LeitnerScheduler` | Swappable scoring and spaced-repetition algorithms. |
+| Factory | `ScoringStrategyFactory`, `QuestionFactory` | Creates the right strategy for a test mode and the right question subtype for stored data. |
+| Template Method | `BaseController.handle()` (authenticate -> authorize -> validate -> execute -> map errors) and `MongoRepository` CRUD with `toEntity` / `toDocument` hooks | Fixes the request and persistence skeletons while allowing subclass-specific steps. |
+| Singleton / Composition Root | `Container.getInstance()` in `lib/container.ts`, exported as `container` | Builds repositories, services, and controllers exactly once. |
+| Dependency Injection | Constructor injection in every service and controller | Application code depends on interfaces and receives them from the container. |
 
----
+## Scoring
 
-## 7. UML Architecture Diagrams
+Both scoring strategies use the same simplified linear conversion for one section:
 
-All UML diagrams are rendered from Mermaid source files located in `docs/uml/`. Both PNG and SVG formats are available.
+```
+sectionScaled = 200 + round(600 * correct / total / 10) * 10
+sectionScaled = clamp(sectionScaled, 200, 800)
+```
 
-### 1. Domain Model Class Diagram
-Reflects domain entities, their attributes, types, and association multiplicities.
-- **Source:** [`docs/uml/01-domain-class.mmd`](docs/uml/01-domain-class.mmd)
-- **Vector:** [`docs/uml/01-domain-class.svg`](docs/uml/01-domain-class.svg)
+- `FullLengthScoringStrategy`: splits the questions into Reading & Writing (section name
+  contains "reading" or "verbal") and Math (section name contains "math"), scales each section
+  independently, and sets `total = rwScaled + mathScaled`, so the total is in 400-1600.
+- `SectionalScoringStrategy`: scores only the requested section/module and reports that single
+  scaled value in 200-800.
+- Wrong answers and omitted questions both count as incorrect. There is no penalty beyond not
+  earning the point.
+- `rawCorrectCounts` and `totalQuestions` are stored on the `ScaledScore` value object and shown
+  in the result detail UI.
 
-![Domain Model Class Diagram](docs/uml/01-domain-class.png)
+This is a documented simplification for the lab project, not the real College Board equating
+algorithm. The UI labels it as a simplified linear scale.
 
----
+## Testing
 
-### 2. Layered Architecture Class Diagram
-Illustrates the 4-tier architecture (API Route -> Controller -> Service -> Model & Zod Schemas) with strict dependency arrows.
-- **Source:** [`docs/uml/02-layered-architecture-class.mmd`](docs/uml/02-layered-architecture-class.mmd)
-- **Vector:** [`docs/uml/02-layered-architecture-class.svg`](docs/uml/02-layered-architecture-class.svg)
+`npm test` runs Vitest with six unit test files under `tests/unit/`, covering the domain and
+application layers:
 
-![Layered Architecture Diagram](docs/uml/02-layered-architecture-class.png)
+- scoring strategies and score bounds (`scoring.test.ts`)
+- attempt invariants and answer recording (`attempt.test.ts`)
+- SPR numeric equivalence and MCQ matching (`question-spr.test.ts`)
+- users, email validation, and error-log deduplication/retry (`user-and-errorlog.test.ts`)
+- Leitner scheduling (`vocab-leitner.test.ts`)
+- application services with in-memory repositories (`services.test.ts`)
 
----
+The suite contains **64 unit tests**. No database or running server is required for `npm test`.
 
-### 3. Use Case Diagram
-Depicts primary actors (Student, Admin) and external systems (Gemini AI) interacting with system functional boundaries.
-- **Source:** [`docs/uml/03-use-case.mmd`](docs/uml/03-use-case.mmd)
-- **Vector:** [`docs/uml/03-use-case.svg`](docs/uml/03-use-case.svg)
+## Screenshots
 
-![Use Case Diagram](docs/uml/03-use-case.png)
+| Screen | File |
+| --- | --- |
+| Login / register | [01-auth.png](docs/screenshots/v2/01-auth.png) |
+| Home dashboard | [02-home.png](docs/screenshots/v2/02-home.png) |
+| Practice library | [03-practice.png](docs/screenshots/v2/03-practice.png) |
+| Test room - Math with KaTeX | [04-test-math-latex.png](docs/screenshots/v2/04-test-math-latex.png) |
+| Test room - SPR question | [05-test-spr.png](docs/screenshots/v2/05-test-spr.png) |
+| Test room - R&W split view | [06-test-rw-passage.png](docs/screenshots/v2/06-test-rw-passage.png) |
+| Results list | [07-results-list.png](docs/screenshots/v2/07-results-list.png) |
+| Result detail | [08-result-detail.png](docs/screenshots/v2/08-result-detail.png) |
+| Result question review | [09-result-review-dialog.png](docs/screenshots/v2/09-result-review-dialog.png) |
+| Error log | [10-error-log.png](docs/screenshots/v2/10-error-log.png) |
+| Statistics | [11-statistics.png](docs/screenshots/v2/11-statistics.png) |
+| Vocabulary decks | [12-vocab-decks.png](docs/screenshots/v2/12-vocab-decks.png) |
+| Flashcard study | [13-vocab-study-card.png](docs/screenshots/v2/13-vocab-study-card.png) |
+| Admin overview | [14-admin-overview.png](docs/screenshots/v2/14-admin-overview.png) |
+| Admin questions | [15-admin-questions.png](docs/screenshots/v2/15-admin-questions.png) |
+| Admin question editor | [15b-admin-question-editor.png](docs/screenshots/v2/15b-admin-question-editor.png) |
+| Mobile home | [16-mobile-home.png](docs/screenshots/v2/16-mobile-home.png) |
+| Mobile test room | [17-mobile-test-room.png](docs/screenshots/v2/17-mobile-test-room.png) |
 
----
+## UML
 
-### 4. Sequence Diagram — Test Taking & Evaluation Flow
-Step-by-step lifecycle from student test initialization, active question answering, submission, grading, database persistence, and score display.
-- **Source:** [`docs/uml/04-sequence-take-test.mmd`](docs/uml/04-sequence-take-test.mmd)
-- **Vector:** [`docs/uml/04-sequence-take-test.svg`](docs/uml/04-sequence-take-test.svg)
+The diagrams live in [docs/uml/](docs/uml/):
 
-![Sequence Diagram - Take Test](docs/uml/04-sequence-take-test.png)
+- [01a-domain-class.png](docs/uml/01a-domain-class.png) - users, tests, questions
+- [01b-domain-class.png](docs/uml/01b-domain-class.png) - attempts, scoring, error log, vocabulary
+- [02-scoring-strategy.png](docs/uml/02-scoring-strategy.png) - Strategy pattern and polymorphism
+- [03a-layered-architecture.png](docs/uml/03a-layered-architecture.png) - layers and controllers
+- [03b-repository-architecture.png](docs/uml/03b-repository-architecture.png) - repositories and ports
+- [04-use-case.png](docs/uml/04-use-case.png) - actors and use cases
+- [05-sequence-submit-attempt.png](docs/uml/05-sequence-submit-attempt.png) - submit-attempt sequence
+- [06-sequence-vocab-review.png](docs/uml/06-sequence-vocab-review.png) - vocabulary review sequence
 
----
+## v1 vs v2
 
-### 5. Sequence Diagram — Authentication & Session Flow
-Registration, password hashing with bcrypt, NextAuth credential authorization, JWT token signing, and role verification.
-- **Source:** [`docs/uml/05-sequence-login.mmd`](docs/uml/05-sequence-login.mmd)
-- **Vector:** [`docs/uml/05-sequence-login.svg`](docs/uml/05-sequence-login.svg)
+v1 is the original MVP and is preserved in git as tag **`v1-mvp`**; v2 lives on the `v2-oop`
+branch.
 
-![Sequence Diagram - Login](docs/uml/05-sequence-login.png)
-
----
-
-## 8. Verification & Quality Assurance
-
-The codebase passes all automated verification standards:
-- **TypeScript:** `npx tsc --noEmit` passes with **0 errors**.
-- **ESLint:** `npm run lint` passes with **0 errors**.
-- **Production Build:** `npm run build` succeeds with **0 errors**.
-- **End-to-End HTTP Verification:** Automated tests pass across all routes, local image endpoints, and math rendering (`scripts/verify-endpoints.ts`).
-
----
-
-## 9. Slides & Presentation
-
-The OOP lab defense slide deck and presenter script are located in [`slides/`](slides/):
-- **Slide Deck (PDF):** [`slides/main.pdf`](slides/main.pdf) — Complete 23-slide Beamer presentation (16:9 widescreen, full-slide UML diagrams with high readability, zero-wrap code listings, and architecture decomposition).
-- **Presenter Script (Markdown):** [`slides/script.md`](slides/script.md) — 10–12 minute step-by-step speaker script with anticipated teacher Q&A defense answers.
-- **LaTeX Source:** [`slides/main.tex`](slides/main.tex)
-- **High-Resolution Page Previews:** [`slides/preview/`](slides/preview/) — Rendered 1920×1080 PNG images of all 23 slides for quick review.
-- **Presenter:** Le Vinh — 202417221 | Group 08
+- v1 used procedural object-literal services (`export const xService = { ... }`) that mixed
+  validation, Mongoose access, and response shaping. v2 uses domain entities, application
+  services with constructor injection, repositories behind interfaces, and thin controllers.
+- v1 included leaderboard, hall of fame/student cards, and an AI chat tutor. These features and
+  their routes, models, components, and seed data were removed in v2 so the product focuses on
+  practice, review, analytics, vocabulary, and administration.
+- v1 rendered with Ant Design. v2 uses one set of shared Tailwind UI primitives, self-hosted
+  fonts, and the Warm Studio visual system.
+- v1 accepted only multiple-choice questions. v2 imports and serves both MCQ and SPR questions,
+  including numeric equivalence for answers such as `0.5`, `.5`, and `1/2`.
+- v1 had no enforced layering: pages and route handlers contained business logic and database
+  calls. v2 keeps routes to a single controller delegation and keeps Mongoose inside
+  `lib/infrastructure`.
