@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+.rich-text table {
+  border-collapse: collapse;
+  margin: 1rem 0;
+  width: auto;
+  border: 1px solid #cbd5e1;
+}
+
+.rich-text th,
+.rich-text td {
+  border: 1px solid #cbd5e1;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.rich-text th {
+  background-color: #f1f5f9;
+  font-weight: 600;
+}

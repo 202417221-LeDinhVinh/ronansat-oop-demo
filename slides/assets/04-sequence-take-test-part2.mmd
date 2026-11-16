@@ -1,0 +1,51 @@
+sequenceDiagram
+    autonumber 13
+    actor Student
+    participant Browser as Test UI (Next.js)
+    participant API as API Routes (/api/*)
+    participant Controller as Controllers (MVC)
+    participant Service as Domain Services
+    participant DB as MongoDB (Mongoose)
+
+    rect rgb(240, 253, 244)
+        note over Student, DB: Phase 3: Test Submission, Result Persistence & Scoring
+        Student->>Browser: Clicks "Submit Test"
+        activate Browser
+        Browser->>Browser: Evaluates answers & computes raw score
+        Browser->>API: POST /api/results (testId, answers, score, breakdown)
+        activate API
+
+        API->>Controller: resultController.createResult(req)
+        activate Controller
+        Controller->>Controller: getServerSession(authOptions) - verify student session
+
+        Controller->>Service: resultService.createResult(userId, data)
+        activate Service
+        Service->>DB: Result.create({ userId, testId, answers, score, ... })
+        activate DB
+        DB-->>Service: Saved Result Document
+        deactivate DB
+
+        Service->>DB: User.findById(userId)
+        activate DB
+        DB-->>Service: User Document
+        deactivate DB
+
+        Service->>Service: Update testsTaken, highestScore, lastTestDate, wrongQuestions
+        Service->>DB: user.save()
+        activate DB
+        DB-->>Service: User record updated
+        deactivate DB
+
+        Service-->>Controller: Return newResult
+        deactivate Service
+
+        Controller-->>API: 201 Created ({ result: newResult })
+        deactivate Controller
+
+        API-->>Browser: 201 Created JSON
+        deactivate API
+
+        Browser-->>Student: Displays Test Summary (SAT Score, Section Breakdown, Review CTA)
+        deactivate Browser
+    end

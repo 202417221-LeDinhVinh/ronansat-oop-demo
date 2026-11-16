@@ -1,0 +1,62 @@
+flowchart LR
+    %% Primary Actor (Left)
+    Student["fa:fa-user Student<br/>(Authenticated User)"]
+
+    %% System Boundary (Center)
+    subgraph SystemBoundary ["RonanSAT Platform"]
+        direction TB
+
+        subgraph CorePlatform ["Core Platform & Account"]
+            UC_Auth(["Register & Login (NextAuth)"])
+            UC_Profile(["Update Profile & Settings"])
+        end
+
+        subgraph AdminFlow ["Administrative Functions"]
+            UC_CreateTest(["Create Practice Test"])
+            UC_AddQuestion(["Add Questions & Passages"])
+            UC_HallOfFame(["Manage Hall of Fame"])
+        end
+
+        subgraph AssessmentFlow ["Practice & Assessment"]
+            UC_Browse(["Browse Practice Tests & Leaderboard"])
+            UC_TakeTest(["Take Timed Practice Test (with Desmos)"])
+            UC_Submit(["Submit Answers & Calculate Score"])
+            UC_Review(["Review Test Results & Explanations"])
+        end
+
+        subgraph AITutorFlow ["AI Tutoring System"]
+            UC_Chat(["Chat with AI Tutor for Guidance"])
+        end
+    end
+
+    %% Secondary Actors (Right)
+    Admin["fa:fa-user-shield Admin<br/>(Platform Administrator)"]
+    GeminiAI["fa:fa-robot Gemini AI<br/>(External AI Service)"]
+
+    %% Student Associations (Left to Center)
+    Student --- UC_Auth
+    Student --- UC_Profile
+    Student --- UC_Browse
+    Student --- UC_TakeTest
+    Student --- UC_Submit
+    Student --- UC_Review
+    Student --- UC_Chat
+
+    %% Admin Associations (Center to Right)
+    UC_Auth --- Admin
+    UC_CreateTest --- Admin
+    UC_AddQuestion --- Admin
+    UC_HallOfFame --- Admin
+
+    %% External AI Service Association (Center to Right)
+    UC_Chat --- GeminiAI
+
+    %% Styling
+    style Student fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0369a1
+    style Admin fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#b45309
+    style GeminiAI fill:#f3e8ff,stroke:#9333ea,stroke-width:2px,color:#6b21a8
+    style SystemBoundary fill:#f8fafc,stroke:#475569,stroke-width:2px
+    style CorePlatform fill:#ffffff,stroke:#cbd5e1,stroke-width:1px
+    style AdminFlow fill:#ffffff,stroke:#cbd5e1,stroke-width:1px
+    style AssessmentFlow fill:#ffffff,stroke:#cbd5e1,stroke-width:1px
+    style AITutorFlow fill:#ffffff,stroke:#cbd5e1,stroke-width:1px

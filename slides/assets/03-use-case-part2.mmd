@@ -1,0 +1,44 @@
+flowchart LR
+    Student["fa:fa-user Student<br/>(Authenticated User)"]
+    Admin["fa:fa-user-shield Admin<br/>(Platform Administrator)"]
+
+    subgraph SystemBoundary ["RonanSAT Platform — Core & Administrative Management"]
+        direction TB
+
+        subgraph CorePlatform ["Core Account Services"]
+            direction LR
+            UC_Auth(["Register & Login (NextAuth)"])
+            UC_Profile(["Update Profile & Settings"])
+        end
+
+        subgraph AdminFlow ["Administrative Functions"]
+            direction TB
+            subgraph AdminRow1 [" "]
+                direction LR
+                UC_CreateTest(["Create Practice Test"])
+                UC_AddQuestion(["Add Questions & Passages"])
+            end
+            subgraph AdminRow2 [" "]
+                direction LR
+                UC_HallOfFame(["Manage Hall of Fame"])
+            end
+            AdminRow1 ~~~ AdminRow2
+        end
+        CorePlatform ~~~ AdminFlow
+    end
+
+    Student --- UC_Auth
+    Student --- UC_Profile
+
+    UC_Auth --- Admin
+    UC_CreateTest --- Admin
+    UC_AddQuestion --- Admin
+    UC_HallOfFame --- Admin
+
+    style Student fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0369a1
+    style Admin fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#b45309
+    style SystemBoundary fill:#f8fafc,stroke:#475569,stroke-width:2px
+    style CorePlatform fill:#ffffff,stroke:#cbd5e1,stroke-width:1px
+    style AdminFlow fill:#ffffff,stroke:#cbd5e1,stroke-width:1px
+    style AdminRow1 fill:#ffffff,stroke:none
+    style AdminRow2 fill:#ffffff,stroke:none

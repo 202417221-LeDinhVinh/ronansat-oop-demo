@@ -1,0 +1,83 @@
+sequenceDiagram
+    autonumber
+    actor User as Student / Admin
+    participant Client as Browser (NextAuth Client)
+    participant Server as Auth Server (NextAuth & Register API)
+    participant Bcrypt as bcryptjs
+    participant DB as MongoDB (User Model)
+
+    %% Section 1: User Registration
+    rect rgb(240, 249, 255)
+        note over User, DB: Flow 1: New Account Registration
+        User->>Client: Enters Name, Email, Password on /auth
+        activate Client
+        Client->>Server: POST /api/auth/register { name, email, password }
+        activate Server
+
+        Server->>DB: User.findOne({ email })
+        activate DB
+        DB-->>Server: null (email available)
+        deactivate DB
+
+        Server->>Bcrypt: hash(password, 10)
+        activate Bcrypt
+        Bcrypt-->>Server: hashedPassword
+        deactivate Bcrypt
+
+        Server->>DB: User.create({ name, email, password: hashedPassword, role: "user" })
+        activate DB
+        DB-->>Server: Saved User Document (newId)
+        deactivate DB
+
+        Server-->>Client: 201 Created { message, userId }
+        deactivate Server
+        Client-->>User: Show registration success and switch to Sign In tab
+        deactivate Client
+    end
+
+    %% Section 2: Credential Login with NextAuth
+    rect rgb(254, 252, 232)
+        note over User, DB: Flow 2: Credential Login via NextAuth & JWT
+        User->>Client: Enters Email and Password and clicks "Sign In"
+        activate Client
+        Client->>Server: GET /api/auth/csrf
+        activate Server
+        Server-->>Client: 200 OK { csrfToken }
+        deactivate Server
+
+        Client->>Server: POST /api/auth/callback/credentials { email, password, csrfToken }
+        activate Server
+
+        note over Server, DB: NextAuth authorize() callback
+        Server->>DB: User.findOne({ email }).select("+password")
+        activate DB
+        DB-->>Server: User Document (including hashed password & role)
+        deactivate DB
+
+        Server->>Bcrypt: compare(credentials.password, user.password)
+        activate Bcrypt
+        Bcrypt-->>Server: true (password verified)
+        deactivate Bcrypt
+
+        note over Server: jwt callback attaches token.id & token.role
+        Server->>Server: Sign JWT & generate session token
+        Server-->>Client: 200 OK (Set-Cookie: next-auth.session-token)
+        deactivate Server
+
+        Client-->>User: Redirect to Home / Dashboard (Session Active)
+        deactivate Client
+    end
+
+    %% Section 3: Session Validation
+    rect rgb(240, 253, 244)
+        note over User, Server: Flow 3: Session & Role Resolution
+        User->>Client: Navigates to protected route (e.g. /admin or /review)
+        activate Client
+        Client->>Server: GET /api/auth/session (Cookie: next-auth.session-token)
+        activate Server
+        note over Server: session callback sets session.user.role = token.role
+        Server-->>Client: 200 OK { user: { id, email, role } }
+        deactivate Server
+        Client-->>User: Grants access based on verified role
+        deactivate Client
+    end

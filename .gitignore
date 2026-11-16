@@ -1,0 +1,63 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+project_details.md
+
+# production
+/build
+
+# markdown: keep README, script, docs
+project_details.md
+!README.md
+!slides/script.md
+!docs/**/*.md
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files
+.env*
+.env.local
+!.env.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# LaTeX build artifacts in slides/
+slides/*.aux
+slides/*.log
+slides/*.nav
+slides/*.snm
+slides/*.toc
+slides/*.out
+slides/*.vrb
+slides/*.fls
+slides/*.fdb_latexmk
+slides/*.xdv
+slides/*.synctex.gz

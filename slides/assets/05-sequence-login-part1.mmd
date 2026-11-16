@@ -1,0 +1,35 @@
+sequenceDiagram
+    autonumber
+    actor User as Student / Admin
+    participant Client as Browser (NextAuth Client)
+    participant Server as Auth Server (NextAuth & Register API)
+    participant Bcrypt as bcryptjs
+    participant DB as MongoDB (User Model)
+
+    rect rgb(240, 249, 255)
+        note over User, DB: Flow 1: New Account Registration
+        User->>Client: Enters Name, Email, Password on /auth
+        activate Client
+        Client->>Server: POST /api/auth/register { name, email, password }
+        activate Server
+
+        Server->>DB: User.findOne({ email })
+        activate DB
+        DB-->>Server: null (email available)
+        deactivate DB
+
+        Server->>Bcrypt: hash(password, 10)
+        activate Bcrypt
+        Bcrypt-->>Server: hashedPassword
+        deactivate Bcrypt
+
+        Server->>DB: User.create({ name, email, password: hashedPassword, role: "user" })
+        activate DB
+        DB-->>Server: Saved User Document (newId)
+        deactivate DB
+
+        Server-->>Client: 201 Created { message, userId }
+        deactivate Server
+        Client-->>User: Show registration success and switch to Sign In tab
+        deactivate Client
+    end

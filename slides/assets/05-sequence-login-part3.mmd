@@ -1,0 +1,20 @@
+sequenceDiagram
+    autonumber 22
+    actor User as Student / Admin
+    participant Client as Browser (NextAuth Client)
+    participant Server as Auth Server (NextAuth & Register API)
+    participant Bcrypt as bcryptjs
+    participant DB as MongoDB (User Model)
+
+    rect rgb(240, 253, 244)
+        note over User, Server: Flow 3: Session & Role Resolution
+        User->>Client: Navigates to protected route (e.g. /admin or /review)
+        activate Client
+        Client->>Server: GET /api/auth/session (Cookie: next-auth.session-token)
+        activate Server
+        note over Server: session callback sets session.user.role = token.role
+        Server-->>Client: 200 OK { user: { id, email, role } }
+        deactivate Server
+        Client-->>User: Grants access based on verified role
+        deactivate Client
+    end
