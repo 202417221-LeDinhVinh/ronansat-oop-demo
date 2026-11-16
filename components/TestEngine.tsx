@@ -1,301 +1,382 @@
-// Giao diện bài test
-// Nhiệm vụ: Tải list câu hỏi, hiển thị timer đếm ngược, cho phép user chọn đáp án, flag câu cần check lại, tự động tính điểm và gửi kết quả về máy chủ khi nộp bài
+"use client";
 
-"use client";    // Tương tác với user
-
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";     // Thi xong thì route sang trang xem điểm
-import { Button, Popconfirm } from "antd";
-import { TestHeader, TestFooter } from "@/components/TestLayout";    // Giao diên header và footer (phần trên và phần dưới trang)
-import QuestionViewer from "@/components/QuestionViewer";            // Hiển thị câu hỏi
+import React, { useState, useEffect, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Coffee, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
+import { TestHeader, TestFooter } from "@/components/TestLayout";
+import QuestionViewer from "@/components/QuestionViewer";
+import DesmosCalculator from "@/components/DesmosCalculator";
 import Loading from "@/components/Loading";
-import DesmosCalculator from "@/components/DesmosCalculator";        // Máy tính desmos
+import { Button } from "@/components/ui/Button";
+import { Dialog } from "@/components/ui/Dialog";
+import { Badge } from "@/components/ui/Badge";
 import api from "@/lib/axios";
-import { API_PATHS } from "@/lib/apiPaths";
-import { useSearchParams } from "next/navigation";
 
+interface TestStage {
+  section: string;
+  module: number;
+  duration: number; // in seconds
+}
 
-export default function TestEngine({ testId }: { testId: string }) {    // Lấy id của bài test -> Dựa vào id này mới biết bài này thuộc Verbal       hay Math
-    const router = useRouter();
+const TEST_STAGES: TestStage[] = [
+  { section: "Reading and Writing", module: 1, duration: 32 * 60 },
+  { section: "Reading and Writing", module: 2, duration: 32 * 60 },
+  { section: "Math", module: 1, duration: 35 * 60 },
+  { section: "Math", module: 2, duration: 35 * 60 },
+];
 
+export default function TestEngine({ testId }: { testId: string }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-    const searchParams = useSearchParams();
-    const mode = searchParams.get("mode") || "full"; 
-    const targetSection = searchParams.get("section"); // vd: "Math"
-    const targetModule = searchParams.get("module") ? parseInt(searchParams.get("module") as string) : null; // vd: 2
+  const mode = searchParams.get("mode") || "full_length";
+  const targetSection = searchParams.get("section");
+  const targetModule = searchParams.get("module")
+    ? parseInt(searchParams.get("module") as string, 10)
+    : null;
+  const initialAttemptId = searchParams.get("attemptId");
 
+  const [attemptId, setAttemptId] = useState<string | null>(initialAttemptId);
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
-    const [testStats, setTestStats] = useState<any>(null);     // lưu thống kê kết quả của bài thi
-    const [questions, setQuestions] = useState<any[]>([]);     // danh sách chứa các câu hỏi 
-    const [loading, setLoading] = useState(true);              
+  // Active stage / module
+  const [currentStageIndex, setCurrentStageIndex] = useState(() => {
+    if (mode === "sectional" && targetSection && targetModule) {
+      const idx = TEST_STAGES.findIndex(
+        (s) => s.section === targetSection && s.module === targetModule
+      );
+      return idx !== -1 ? idx : 0;
+    }
+    return 0;
+  });
 
-    const [currentIndex, setCurrentIndex] = useState(0);                   // Lưu số index của câu hỏi hiện tại 0 1 2 3
-    const [answers, setAnswers] = useState<Record<string, string>>({});    // biến nhớ lưu theo từng cặp, gồm mã câu hỏi và đáp án mà user chọn 
-    const [flagged, setFlagged] = useState<Record<string, boolean>>({});   // lưu mã câu hỏi và bool xem user có flag câu đó hay không
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [flagged, setFlagged] = useState<Record<string, boolean>>({});
 
-    // Timer State  
-    const [timeRemaining, setTimeRemaining] = useState(0);        // Lưu số time còn lại
-    const [isTimerHidden, setIsTimerHidden] = useState(false);    // biến nhớ cho nút bật/tắt timer
+  // Timer
+  const [timeRemaining, setTimeRemaining] = useState<number>(() => {
+    return TEST_STAGES[currentStageIndex]?.duration || 32 * 60;
+  });
+  const [isTimerHidden, setIsTimerHidden] = useState(false);
 
-    const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);     // biến nhớ cho nút bật/tắt desmos
+  // Tools
+  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
 
-    const [modules, setModules] = useState<any[]>([]);       // Biến mới: Chứa 4 khúc của bài test
-    const [currentModuleIndex, setCurrentModuleIndex] = useState(0); // Biến mới: Nhớ xem đang ở khúc nào (0, 1, 2, 3)
-    const testStages = [
-                { section: "Reading and Writing", module: 1, duration: 32 * 60 }, // 32 phút
-                { section: "Reading and Writing", module: 2, duration: 32 * 60 },
-                { section: "Math", module: 1, duration: 35 * 60 },   // 35 phút
-                { section: "Math", module: 2, duration: 35 * 60 },
-            ];  
+  // Module Transition Modal State
+  const [transitionModalOpen, setTransitionModalOpen] = useState(false);
+  const [isBreakTime, setIsBreakTime] = useState(false);
 
+  const currentStage = TEST_STAGES[currentStageIndex];
+  const currentModuleQuestions = questions.filter(
+    (q) => q.section === currentStage.section && q.module === currentStage.module
+  );
 
+  // 1. Fetch questions and initialize Attempt session
+  useEffect(() => {
+    let isMounted = true;
 
+    async function initializeSession() {
+      try {
+        setLoading(true);
 
+        // Fetch questions for this test
+        const questionsRes = await api.get(`/api/questions?testId=${testId}`);
+        const allQuestions = questionsRes.data?.questions || [];
 
-    const [currentStageIndex, setCurrentStageIndex] = useState(() => {
-
-      
-
-
-        // Nếu là Sectional, quét mảng testStages tìm đúng index khớp với URL
-        if (mode === "sectional" && targetSection && targetModule) {
-            const index = testStages.findIndex(s => s.section === targetSection && s.module === targetModule);
-            return index !== -1 ? index : 0;
+        if (isMounted) {
+          setQuestions(allQuestions);
         }
-        return 0; // Nếu là full test thì mặc định bắt đầu từ đầu
-    });
-   
 
-    const currentStage = testStages[currentStageIndex];
-    const currentModuleQuestions = questions.filter(
-        (q) => q.section === currentStage.section && q.module === currentStage.module
-    );
-
-    useEffect(() => {
-        const fetchQuestions = async () => {
-            try {
-                const res = await api.get(API_PATHS.getQuestionsByTestId(testId));     // gửi yêu cầu GET các câu hỏi của testId đó
-                const data = res.data;    // Lấy data từ kết quả
-
-                setQuestions(data.questions || []);    // Lưu danh sách questions vừa lấy được vào biến nhớ để hiện lên màn hình, k lấy dược thì trả về mảng rỗng tránh lỗi
-                // FIX: Thay vì mặc định 60 phút, lấy duration của chặng đầu tiên
-                setTimeRemaining(testStages[0].duration);        
-
-                sessionStorage.setItem('testName', 'Practice Test');    // sessionStorage lưu vào bộ nhớ của phiên đăng nhập đó, thông tin đc lưu bị vứt ngay khi tắt tab trên trình duyệt
-                                      // testName là tên nhãn, nội dung là 'Practice Test'  -> Lưu để sau này, khi đến trang  review kết quả chỉ cần mở tìm nhãn testName là có ngay, k cần gọi máy chủ hỏi lại tên
-                                      // Lưu thông tin đã có ở bước này để bước sau dùng luôn, k phải gọi lại DB mất tgian
-            } catch (err) {
-                console.error(err);
-            } finally {
-                setLoading(false);     // Lấy question xong thì tắt loading
-            }
-        };
-        fetchQuestions();   // gọi hàm 
-    }, [testId]);                 // Khi testId thay đổi => cần lấy danh sách câu hỏi của 1 test mới 
-
-    // Timer Countdown
-    // mỗi 1 giây, hàm sẽ trừ 1 giây, nếu về 0 thì sẽ auto nộp bài 
-    useEffect(() => {
-        if (loading || timeRemaining <= 0) return;    // nếu đang load or hết thời gian rồi thì k hiện timer
-
-        // setInterval(() => { ... }, 1000) -> Cứ mỗi 1000 milisecond = 1 giây thì thực hiện lệnh trong ... 1 lần
-        const interval = setInterval(() => {
-            setTimeRemaining((prev) => {          // prev là số giây trước đó
-                if (prev <= 1) {                  // nếu số giây cũ là 1 (giây cuối cùng)
-                    clearInterval(interval);      // Phá bỏ vòng lặp 1 giây ở trên (Tắt đồng hồ để k bị âm giây -1 -2)
-                    handleSubmit();               // nộp bài luôn
-                    return 0;                 // trả về con số hiện lên màn hình là 0 giây
+        // Initialize attempt if not provided in URL and not previewing
+        const isPreview = searchParams.get("preview") === "true" || mode === "preview";
+        let activeAttemptId = initialAttemptId;
+        if (!activeAttemptId && !isPreview) {
+          const attemptPayload =
+            mode === "sectional" && targetSection && targetModule
+              ? {
+                  testId,
+                  mode: "sectional",
+                  sectionalSubject: targetSection,
+                  sectionalModule: targetModule,
                 }
-                return prev - 1;       // k phải giây cuối => Mỗi giây trừ 1 giây của số giây trước
-            });
-        }, 1000);
-
-        return () => clearInterval(interval);        // Clean up function: nếu hs tắt web thì tắt đồng hồ tránh đồng hồ chạy ngầm tốn ram
-                 // return trong useEffect chạy khi useEffect khởi động lại hoặc ngay trước khi giao diện đóng
-    }, [loading, timeRemaining]);                   // Hàm này để mắt tới 2 yếu tố: đã tải xong đề thi chưa và mỗi khi thời gian còn lại thay đổi
-
-
-// dưới là 5 thao tác user có thể làm khi làm bài thi
-
-    const handleAnswerSelect = (questionId: string, choice: string) => {    // ghi nhận đáp án được chọn
-        setAnswers({ ...answers, [questionId]: choice });     // React bắt lưu vào bản nháp ... 
-                               // Lưu mã số câu và lựa chọn của user, chọn lại thì ghi đè vào lựa chọn trước
-    };
-
-    const toggleFlag = (questionId: string) => {
-        setFlagged({ ...flagged, [questionId]: !flagged[questionId] });
-                                  // Tương tự trên, lưu câu nào bật flag  -> !flagged để cắm cờ ra/vào mỗi khi ấn 
-    };
-
-    const handleNext = () => {          // Khi ấn Next sang câu tiếp theo
-        // FIX: Check theo độ dài của module hiện tại thay vì toàn bộ đề thi
-        if (currentIndex < currentModuleQuestions.length - 1) setCurrentIndex(currentIndex + 1);   // chuyển index sang câu tiếp theo = cách +1 vào index hiện tại
-    };
-
-    const handlePrev = () => {
-        if (currentIndex > 0) setCurrentIndex(currentIndex - 1); 
-        // Miễn là k phải câu đầu tiên, -1 index để sang câu trước
-    };
-
-    const handleJump = (index: number) => {
-        setCurrentIndex(index);
-        // Nhảy tới 1 câu bất kỳ k cần kiểm tra đầu or cuối
-    };
-
-   //Gói các câu trả lời -> Đối chiếu với đáp án đúng để tính điểm -> Nhân 1600 để ra số điểm -> Gửi kết quả cho BE -> Điều hướng tới trang xem kết quả
-  
-  
-   // THAY THẾ TOÀN BỘ HÀM handleSubmit HIỆN TẠI BẰNG ĐOẠN NÀY:
-    const handleSubmit = async () => {
-        // 1. NẾU LÀ FULL TEST VÀ CHƯA TỚI CHẶNG CUỐI -> BƯỚC SANG MODULE TIẾP THEO
-        if (mode === "full" && currentStageIndex < 3) {
-            const nextStageIndex = currentStageIndex + 1;
-            setCurrentStageIndex(nextStageIndex);
-            setCurrentIndex(0); 
-            setTimeRemaining(testStages[nextStageIndex].duration); 
-            return; 
-        }
-
-        // 2. NẾU LÀ SECTIONAL HOẶC ĐÃ ĐẾN CUỐI FULL TEST -> CHẤM ĐIỂM VÀ NỘP BÀI
-        try {
-          // Chỉ lấy câu hỏi của Module hiện tại nếu đang thi Sectional, ngược lại lấy toàn bộ
-            const questionsToGrade = mode === "sectional" ? currentModuleQuestions : questions;
-
-            const formattedAnswers = questionsToGrade.map(q => {
-                const userAns = answers[q._id] || "Omitted";
-                return {
-                    questionId: q._id,
-                    userAnswer: userAns,
-                    isCorrect: userAns === q.correctAnswer
+              : {
+                  testId,
+                  mode: "full_length",
                 };
-            });
 
-            if (mode === "sectional") {
-                // TÍNH ĐIỂM DẠNG SECTIONAL: Đếm số câu đúng
-                let correctCount = 0;
-                currentModuleQuestions.forEach(q => {
-                    const userAns = answers[q._id] || "";
-                    if (userAns === q.correctAnswer) correctCount++;
-                });
-
-                // Gửi API với các trường dữ liệu tương thích với Schema mới
-                const res = await api.post(API_PATHS.RESULTS, {
-                    testId,
-                    isSectional: true,                       // Cờ báo hiệu đây là bài làm từng phần
-                    sectionalSubject: currentStage.section,  // "Reading and Writing" hoặc "Math"
-                    sectionalModule: currentStage.module,    // 1 hoặc 2
-                    answers: formattedAnswers,
-                    totalScore: correctCount,                // Mượn tạm trường totalScore để lưu số câu đúng
-                    readingScore: 0,                         // Điền 0 để máy chủ không báo lỗi "thiếu điểm"
-                    mathScore: 0                             // Điền 0 để máy chủ không báo lỗi "thiếu điểm"
-                });
-
-                if (res.status === 200 || res.status === 201) {
-                    router.push(`/review?testId=${testId}&mode=sectional`);
-                }
-            } else {
-                // TÍNH ĐIỂM DẠNG FULL TEST BÌNH THƯỜNG
-                let earnedReadingPoints = 0;
-                let earnedMathPoints = 0;
-
-                questions.forEach(q => {
-                    const userAns = answers[q._id] || "";
-                    if (userAns === q.correctAnswer) {
-                        const points = q.points || 0; 
-                        if (q.section === "Reading and Writing") {
-                            earnedReadingPoints += points;
-                        } else if (q.section === "Math") {
-                            earnedMathPoints += points;
-                        }
-                    }
-                });
-
-                const readingScore = Math.min(200 + earnedReadingPoints, 800);
-                const mathScore = Math.min(200 + earnedMathPoints, 800);
-                const totalScore = readingScore + mathScore;
-
-                const res = await api.post(API_PATHS.RESULTS, {
-                    testId,
-                    isSectional: false,
-                    answers: formattedAnswers,
-                    score: totalScore,
-                    sectionBreakdown: { readingAndWriting: readingScore, math: mathScore }
-                });
-
-                if (res.status === 200 || res.status === 201) {
-                    router.push("/review");
-                }
-            }
-        } catch (err) {
-            console.error(err);
-            alert("Failed to submit test");
+          const startRes = await api.post("/api/attempts/start", attemptPayload);
+          activeAttemptId = startRes.data?.attemptId || startRes.data?.attempt?._id;
         }
-    };
 
-    // Dưới là các chốt chặn trc khi hiển thị giao diện làm bài
-    if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center"><Loading /></div>;   // Nếu đanh load thì load animation
-
-    if (questions.length === 0) {    // Nếu mà k có câu hỏi nào sau khi lấy về thì hiện No question found và hiện 1 nút quay về trang chủ
-        return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-6">
-                <h1 className="text-2xl font-bold mb-4 text-slate-900">No questions found!</h1>
-                <button onClick={() => router.push('/')} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Return to Dashboard</button>
-            </div>
-        );
+        if (isMounted && activeAttemptId) {
+          setAttemptId(activeAttemptId);
+        }
+      } catch (err) {
+        console.error("Failed to initialize test room:", err);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
     }
 
-    // Qua 2 chốt trên => Dữ liệu đã tải xong và chắc chắn có câu hỏi
-    // FIX: Lấy câu hỏi hiện tại từ module hiện tại chứ không lấy từ toàn bộ mảng gốc
-    const currentQuestion = currentModuleQuestions[currentIndex] || questions[0];    // lấy câu hỏi hiện tại để display bằng hàm dưới
+    initializeSession();
 
+    return () => {
+      isMounted = false;
+    };
+  }, [testId, mode, targetSection, targetModule, initialAttemptId]);
+
+  // 2. Countdown Timer
+  useEffect(() => {
+    if (loading || timeRemaining <= 0 || transitionModalOpen) return;
+
+    const interval = setInterval(() => {
+      setTimeRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          handleModuleAdvance();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [loading, timeRemaining, transitionModalOpen]);
+
+  // 3. Record Answer (both MCQ and SPR)
+  const handleAnswerSelect = async (questionId: string, answerText: string) => {
+    setAnswers((prev) => ({ ...prev, [questionId]: answerText }));
+
+    // Send answer asynchronously to server if attemptId is active
+    if (attemptId) {
+      try {
+        await api.post(`/api/attempts/${attemptId}/answer`, {
+          questionId,
+          answer: answerText,
+        });
+      } catch (err) {
+        console.error("Could not record answer on server:", err);
+      }
+    }
+  };
+
+  const toggleFlag = (questionId: string) => {
+    setFlagged((prev) => ({ ...prev, [questionId]: !prev[questionId] }));
+  };
+
+  const handleNext = () => {
+    if (currentIndex < currentModuleQuestions.length - 1) {
+      setCurrentIndex((prev) => prev + 1);
+    }
+  };
+
+  const handlePrev = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex((prev) => prev - 1);
+    }
+  };
+
+  const handleJump = (index: number) => {
+    setCurrentIndex(index);
+  };
+
+  // 4. Advance Module or Final Submit
+  const handleModuleAdvance = async () => {
+    // If Sectional mode -> Final submit immediately
+    if (mode === "sectional") {
+      await finalizeAttempt();
+      return;
+    }
+
+    // Full-Length mode transitions
+    if (currentStageIndex < 3) {
+      // If moving from Module 2 (Reading & Writing) to Module 3 (Math), offer break screen
+      if (currentStageIndex === 1) {
+        setIsBreakTime(true);
+      } else {
+        setIsBreakTime(false);
+      }
+      setTransitionModalOpen(true);
+    } else {
+      // Completed all 4 modules -> Final submit
+      await finalizeAttempt();
+    }
+  };
+
+  const proceedToNextModule = () => {
+    const nextIndex = currentStageIndex + 1;
+    setCurrentStageIndex(nextIndex);
+    setCurrentIndex(0);
+    setTimeRemaining(TEST_STAGES[nextIndex].duration);
+    setTransitionModalOpen(false);
+    setIsBreakTime(false);
+  };
+
+  const finalizeAttempt = async () => {
+    if (!attemptId) {
+      alert("No active attempt found. Please return to practice catalog.");
+      router.push("/practice");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const submitRes = await api.post(`/api/attempts/${attemptId}/submit`, {});
+      const submittedId = submitRes.data?.attemptId || attemptId;
+      router.push(`/results/${submittedId}`);
+    } catch (err: any) {
+      console.error("Error submitting attempt:", err);
+      alert(err.response?.data?.error || "Failed to submit attempt. Redirecting to practice catalog.");
+      router.push("/practice");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
     return (
-        <div className="min-h-screen flex flex-col bg-white overflow-hidden relative selection:bg-yellow-200">
-            <TestHeader         // Phần header trên bài test có: Tên section (Verbal or Math), Đồng hồ tgian còn lại, gọi hàm handleSubmit khi hết giờ
-                sectionName={`${currentStage.section} - Module ${currentStage.module}`} // Hiện kèm tên module đang làm
-                timeRemaining={timeRemaining}
-                onTimeUp={handleSubmit}    // hàm xử lý khi hết giờ thì submit, onTimeUp chỉ là tên (ở phần khai báo thì nó là 1 hàm để truyền được handleSubmit vào), handleSubmit mới là bộ não, biết hết giờ và gửi
-                isTimerHidden={isTimerHidden}           // Đây là component con k dùng logic để bật tắt timer mà chỉ nhạn tín hiệu từ component cha là TestLayout
-                setIsTimerHidden={setIsTimerHidden}
-                onToggleCalculator={() => setIsCalculatorOpen(!isCalculatorOpen)}       // Lật ngược lại bool bật tắt Calc
-                showCalculator={currentStage.section === "Math"}
-
-                buttonText={mode === "sectional" ? "Submit Module" : (currentStageIndex < 3 ? "Next Module" : "Submit Test")}
-                confirmTitle={mode === "sectional" ? "Submit Module" : (currentStageIndex < 3 ? "Next Module" : "Submit Full Test")}
-                confirmDescription={mode === "sectional" ? "Are you sure you want to grade this module now?" : "Are you sure you want to end this section?"}
-                            
-            />
-
-            <DesmosCalculator
-                isOpen={isCalculatorOpen}                      // Nhận tín hiệu bật or tắt
-                onClose={() => setIsCalculatorOpen(false)}     // nếu đang tắt thì tắt máy tính đi
-            />
-
-            <main className="flex-1 w-full bg-white relative">   
-                <QuestionViewer                                         // Truyền vào các tham số, hàm cho component con QuestionViewer
-                    question={currentQuestion}                          // nội dung câu
-                    userAnswer={answers[currentQuestion._id]}           // hiện đáp án user đã chọn 
-                    onAnswerSelect={handleAnswerSelect}                 // hàm xử lý khi user chọn
-                    isFlagged={!!flagged[currentQuestion._id]}
-                    onToggleFlag={toggleFlag}                           // Hàm xử lý bật tắt cờ
-                    index={currentIndex}                                // Truyền vào index của câu hiện tại cho component QuestionViewer, nó sẽ tự + 1
-                />
-            </main>
-
-          
-
-            {/** Đây là mục  để di chuyển giữa các câu, và là cả thanh ở dưới trang, có nút next prev 
-             * Đang thiếu Tên: FIX
-            */}
-            <TestFooter                              // Truyền tham số và hàm cho component con TestFooter
-                currentIndex={currentIndex}           // Báo cho biết đây là câu số mấy
-                totalQuestions={currentModuleQuestions.length}     // FIX: Tổng sổ câu giới hạn trong Module hiện tại
-                onNext={handleNext}                   // hàm xử lý các nút next prev và jump
-                onPrev={handlePrev}
-                onJump={handleJump} 
-                answers={answers}                     // Truyền vào các câu đã chọn để hiển thị màu khác các câu chưa chọn
-                flagged={flagged}                     // Lấy thông tin các câu đã flag để hiện lên mục di chuyển giữa các câu
-                questions={currentModuleQuestions}    // FIX: Giao danh sách câu hỏi CỦA MODULE HIỆN TẠI để vẽ số ô Grid tương ứng
-            />
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-canvas)]">
+        <Loading message="Preparing testing room and College Board question set..." />
+      </div>
     );
+  }
+
+  if (questions.length === 0 || currentModuleQuestions.length === 0) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[var(--bg-canvas)] text-center">
+        <AlertCircle className="w-12 h-12 text-[var(--accent-brand-strong)] mb-3" />
+        <h2 className="text-2xl font-bold text-[var(--text-primary)]">
+          No questions found for this module
+        </h2>
+        <p className="mt-2 text-sm text-[var(--text-muted)] max-w-md">
+          The requested section has no imported questions in the database.
+        </p>
+        <Button
+          variant="primary"
+          size="md"
+          className="mt-6"
+          onClick={() => router.push("/practice")}
+        >
+          Return to Practice Library
+        </Button>
+      </div>
+    );
+  }
+
+  const currentQuestion = currentModuleQuestions[currentIndex] || currentModuleQuestions[0];
+  const isLastStage = mode === "sectional" || currentStageIndex === 3;
+  const isMathSection = currentStage.section === "Math";
+
+  return (
+    <div className="min-h-screen flex flex-col bg-[var(--bg-surface)] overflow-hidden relative select-none">
+      {/* Test Top Navigation Bar */}
+      <TestHeader
+        sectionName={`${currentStage.section} - Module ${currentStage.module}`}
+        timeRemaining={timeRemaining}
+        onTimeUp={handleModuleAdvance}
+        isTimerHidden={isTimerHidden}
+        setIsTimerHidden={setIsTimerHidden}
+        showCalculator={isMathSection}
+        onToggleCalculator={() => setIsCalculatorOpen(!isCalculatorOpen)}
+        buttonText={isLastStage ? "Submit Test" : "Next Module"}
+        confirmTitle={isLastStage ? "Submit Test?" : "End This Module?"}
+        confirmDescription={
+          isLastStage
+            ? "Are you ready to submit your test? Once submitted, your score will be calculated and missed questions added to your error log."
+            : "You are about to finish this module and proceed to the next. You will not be able to return to these questions."
+        }
+      />
+
+      {/* Desmos Graphing Calculator (Math only) */}
+      <DesmosCalculator
+        isOpen={isCalculatorOpen && isMathSection}
+        onClose={() => setIsCalculatorOpen(false)}
+      />
+
+      {/* Main Question Display Surface */}
+      <main className="flex-1 w-full bg-[var(--bg-canvas)] relative">
+        <QuestionViewer
+          question={currentQuestion}
+          userAnswer={answers[currentQuestion._id] || ""}
+          onAnswerSelect={handleAnswerSelect}
+          isFlagged={!!flagged[currentQuestion._id]}
+          onToggleFlag={toggleFlag}
+          index={currentIndex}
+        />
+      </main>
+
+      {/* Test Footer with Question Navigator and Prev/Next */}
+      <TestFooter
+        currentIndex={currentIndex}
+        totalQuestions={currentModuleQuestions.length}
+        onNext={handleNext}
+        onPrev={handlePrev}
+        onJump={handleJump}
+        answers={answers}
+        flagged={flagged}
+        questions={currentModuleQuestions}
+      />
+
+      {/* -------------------------------------------------------------------
+          MODULE TRANSITION & 10-MINUTE BREAK DIALOG (Full-Length Tests)
+      -------------------------------------------------------------------- */}
+      <Dialog
+        open={transitionModalOpen}
+        onClose={() => {}} // User must explicitly click proceed
+        title={isBreakTime ? "10-Minute Break (Optional)" : "Module Completed"}
+        description={
+          isBreakTime
+            ? "You have finished the Reading and Writing section! Take a short break before starting Math."
+            : `You have completed ${currentStage.section} Module ${currentStage.module}.`
+        }
+        maxWidth="md"
+      >
+        <div className="space-y-4 py-2">
+          {isBreakTime ? (
+            <div className="p-4 rounded-[var(--ui-radius-sm)] bg-[#faf1de] border border-[#ecd49d] text-center space-y-2">
+              <div className="w-10 h-10 rounded-full bg-[#f6e5be] text-[#8c6b1f] flex items-center justify-center mx-auto">
+                <Coffee className="w-5 h-5" />
+              </div>
+              <p className="text-sm font-bold text-[#8c6b1f]">Scheduled Break</p>
+              <p className="text-xs text-[#a07c24] max-w-sm mx-auto">
+                On the official Digital SAT, you receive an optional 10-minute break between
+                Reading &amp; Writing and Math. When you are ready, click below to start Math Module 1.
+              </p>
+            </div>
+          ) : (
+            <div className="p-4 rounded-[var(--ui-radius-sm)] bg-[#e8f7f0] border border-[#b2e5ce] flex items-center gap-3">
+              <CheckCircle2 className="w-6 h-6 text-[var(--state-success)] shrink-0" />
+              <p className="text-xs text-[#166e4b] leading-relaxed">
+                Answers for this module have been saved. Ready for{" "}
+                <strong>
+                  {TEST_STAGES[currentStageIndex + 1]?.section} Module{" "}
+                  {TEST_STAGES[currentStageIndex + 1]?.module}
+                </strong>
+                ?
+              </p>
+            </div>
+          )}
+
+          <div className="flex justify-end pt-2">
+            <Button
+              variant="primary"
+              size="md"
+              onClick={proceedToNextModule}
+              className="w-full sm:w-auto"
+            >
+              <span>
+                {isBreakTime ? "Resume & Start Math" : "Proceed to Next Module"}
+              </span>
+              <ArrowRight className="w-4 h-4 ml-1.5" />
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+    </div>
+  );
 }

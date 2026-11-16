@@ -1,268 +1,273 @@
-// Tạo ra setting page cho phép 
-// 1. Thay đổi tên
-// 2. Thay đổi pass
-"use client";   // Trang này có tính  tương tác, chạy trên trang user
+"use client";
 
-import { useSession } from "next-auth/react";    // Lấy các thông tin lần đăng nhập này của user
-import { useState, useEffect } from "react";     // quản lý dữ liệu
-import { User, Save, CheckCircle, Lock } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import Link from "next/link";
+import { User, Lock, Save, CheckCircle2, AlertCircle, Shield } from "lucide-react";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import Loading from "@/components/Loading";
 import api from "@/lib/axios";
 import { API_PATHS } from "@/lib/apiPaths";
 
 export default function SettingsPage() {
+  const { data: session, status, update } = useSession();
 
-    // useSession() là công cụ trả về thông in session login
-    // lấy về data: session -> Trả về thông tin cá nhân(tên và email) nếu đăng nhập rồi, chưa thì rỗng
-    // status là trạng thái login hiện tại: loading, authenticated (login rồi), unauthenticated (chưa login)
-    const { data: session, status, update } = useSession();
+  const [name, setName] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [profileMessage, setProfileMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // Password fields
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isPasswordSaving, setIsPasswordSaving] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-    // NextJS tải dữ liệu theo 2 step: Bước 1: Server side -> Bước 2: Client side
-    // Nếu ở bước 1, server mặc định vẽ màu trắng nhưng đến bước client lại có customization là thích màu đen thì sẽ bị chuyển chớp từ trắng thành đen -> Mất thẩm mỹ
-    // mount là thứ ép NextJS đợi mọi thứ chạy hết trên máy tính (vd hiển thị khung HTML) nhưng không khởi tạo các phần của giao diện mang tính cá nhân hóa -> Khung được gửi tới trình duyệt, lắp xong xuôi -> setMounted(true) -> Mới hiển thị component mang tính cá nhân hóa ( vd: có màu đen)
-    const [mounted, setMounted] = useState(false);
-
-    // Thông tin cá nhân
-    const [name, setName] = useState("");               // name mình nhập
-    const [isSaving, setIsSaving] = useState(false);    // trạng thái có đang loading không để làm mờ nút bấm
-    const [message, setMessage] = useState("");         // message báo user thành công hay thất bại
-
-    // Password 
-    const [currentPassword, setCurrentPassword] = useState("");     // Quản lý ô nhập mật khẩu hiện tại
-    const [newPassword, setNewPassword] = useState("");             // pass mới
-    const [confirmPassword, setConfirmPassword] = useState("");     // ô xác nhận pass mới
-    const [isPasswordSaving, setIsPasswordSaving] = useState(false);    // Kiểm tra xem có đang lưu mật khẩu không, nếu có thì không cho gửi yêu cầu reset pass nữa tránh ycau rác
-    const [passwordMessage, setPasswordMessage] = useState("");         // Hiển thị thông báo trạng thái reset pass
-
-    useEffect(() => {
-        setMounted(true);               // Đánh dấu rằng web đã được tải  lên xong xuôi -> Sẵn sàng hoạt  động
-        if (session?.user?.name) {      // Kiểm tra từ ngoài vào trong: từ session tới user tới name, phải tồn tại full tránh gây sập web
-            setName(session.user.name);    // nếu có name -> Điền ngay name vào ô name, k phải nhập lại
-        } 
-    }, [session]);     // [session] là dependency array -> Phụ thuộc vào biến session -> Nó thay đổi cái là hàm này chạy -> Lấy tên điền vào ô name luôn
-                       // Ví dụ giây đầu, session đang undefined vì máy đang hỏi máy chủ anh này đăng nhập chưa -> 2s sau đăng nhập -> biến session bị thay đổi và có tên => Điền ngay tên và ô name
-  
-    // Trc khi tới ô đổi tên phải check xem có quyền k  
-
-    if (status === "loading" || !mounted) { // Nếu status là đang load thì chờ và hiện animation load
-        return <Loading />;
+  useEffect(() => {
+    if (session?.user?.name) {
+      setName(session.user.name);
     }
-    //Nếu chưa login => Yêu cầu login
-    if (status === "unauthenticated" || !session) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50 border-t border-slate-200">
-                <div className="p-8 text-black font-bold bg-white rounded-lg">
-                    Please log in to view settings.
-                </div>
-            </div>
-        );
-    }
- 
+  }, [session]);
 
-    // Hàm này hoạt động khi gõ tên xong và ấn Save Profile
-    const handleUpdateProfile = async (e: React.FormEvent) => {    
-        e.preventDefault();
-        setIsSaving(true);    
-        setMessage("");
+  if (status === "loading") {
+    return <Loading message="Loading profile settings..." />;
+  }
 
-        try {
-            const res = await api.put(API_PATHS.USER_SETTINGS, { name });  // name là tắt cho name: name   gửi đi yêu cầu put thay đổi biến name
-
-            if (res.status === 200) {           
-                setMessage("Profile updated successfully!");    // update thành công name mới lên DB nhưng session hiện tại vẫn có name cũ
-                await update({ name });                         // update là của useSession -> update name mới cho session 
-            } else {
-                setMessage(`Error: ${res.data.error || "Failed to update profile"}`);
-            }
-        } catch (err: any) {
-            console.error(err);
-            setMessage(`Error: ${err.response?.data?.error || "Network error. Could not update profile."}`);
-        } finally {
-            setIsSaving(false);   // Tắt chế độ đang lưu để trả lại function cho nút Save Pro
-        }
-    };
-
-    // Hàm này cũng ktra update password nhưng chỉ là FE, Ktra sơ sơ bước đầu
-    const handleUpdatePassword = async (e: React.FormEvent) => {
-        e.preventDefault();
-
-        // Lỗi pass ở new và confirm k match
-        if (newPassword !== confirmPassword) {
-            setPasswordMessage("Error: New passwords do not match");
-            return;
-        }
-
-        // Lỗi length
-        if (newPassword.length < 6) {
-            setPasswordMessage("Error: New password must be at least 6 characters");
-            return;
-        }
-
-        // Ở đây tức là Pass hợp lệ => chuyển sang saving tránh gửi lại yêu cầu rác và clear message
-        setIsPasswordSaving(true);
-        setPasswordMessage("");
-
-        // Bước cuối để đổi pass, gói 3 ô vừa nhập gửi về BE
-        try {
-            const res = await api.put(API_PATHS.USER_PASSWORD, { currentPassword, newPassword, confirmPassword });
-            // Gửi yêu cầu PUT vì hàm của api/user/password xử lý ycau PUT
-            // Đóng gói 3 ô này để gửi
-
-            if (res.status === 200) {      
-                setPasswordMessage("Password updated successfully!");
-                setCurrentPassword("");   // Reset, xóa ở FE
-                setNewPassword("");
-                setConfirmPassword("");
-            } else {
-                setPasswordMessage(`Error: ${res.data.error || "Failed to update password"}`);
-            }
-        } catch (err: any) {
-            console.error(err);
-            setPasswordMessage(`Error: ${err.response?.data?.error || "Network error. Could not update password."}`);
-        } finally {
-            setIsPasswordSaving(false);    // Bỏ trạng thái saving trả lại function cho nút Save
-        }
-    };
-
+  if (status === "unauthenticated" || !session) {
     return (
-        <div className="min-h-screen bg-slate-50 p-8 pb-24 duration-200">
-            <div className="max-w-3xl mx-auto space-y-8">
-                <div>
-                    <h1 className="text-3xl font-bold text-slate-900 mb-2">Settings</h1>
-                </div>
-
-                {/* Profile Card */}
-                <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                    <div className="p-5 border-b border-slate-200 bg-white flex items-center gap-2 text-slate-800 font-bold">
-                        <User className="w-5 h-5 text-blue-600" />
-                        Profile Details
-                    </div>
-
-                    <form className="p-6 space-y-5" onSubmit={handleUpdateProfile}>
-                        {message && (
-                            <div
-                                className={`p-4 rounded-lg font-medium text-sm flex items-center gap-2 ${message.includes("success")
-                                    ? "bg-green-50 text-green-700"
-                                    : "bg-red-50 text-red-700"
-                                    }`}
-                            >
-                                {message.includes("success") && <CheckCircle className="w-5 h-5" />}
-                                {message}
-                            </div>
-                        )}
-
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1">
-                                Display Name
-                            </label>
-                            <input
-                                type="text"
-                                value={name}                                  // Thay đổi ở biến name, 2 onChange còn lại là vào newpass và confirmpass
-                                onChange={(e) => setName(e.target.value)}     // Điền name để change 
-                                placeholder="What should we call you?"
-                                className="w-full max-w-md px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-slate-900"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1">
-                                Email Address
-                            </label>
-                            <input
-                                type="email"
-                                disabled
-                                value={session.user.email!}
-                                className="w-full max-w-md px-4 py-2 border border-slate-200 rounded-lg bg-slate-100 text-slate-500 cursor-not-allowed"
-                            />
-                        </div>
-
-                        <div className="pt-4 flex justify-start">
-                            <button
-                                type="submit"
-                                disabled={isSaving || name === session.user.name}
-                                className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-6 py-2 rounded-lg flex items-center gap-2 font-medium"
-                            >
-                                <Save className="w-4 h-4" /> {isSaving ? "Saving..." : "Save Profile"}
-                            </button>
-                        </div>
-                    </form>
-                </div>
-
-                {/* Security Card */}
-                <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                    <div className="p-5 border-b border-slate-200 bg-white flex items-center gap-2 text-slate-800 font-bold">
-                        <Lock className="w-5 h-5 text-indigo-600" />
-                        Security
-                    </div>
-
-                    <form className="p-6 space-y-5" onSubmit={handleUpdatePassword}>
-                        {passwordMessage && (
-                            <div
-                                className={`p-4 rounded-lg font-medium text-sm flex items-center gap-2 ${passwordMessage.includes("success")
-                                    ? "bg-green-50 text-green-700"
-                                    : "bg-red-50 text-red-700"
-                                    }`}
-                            >
-                                {passwordMessage.includes("success") && <CheckCircle className="w-5 h-5" />}
-                                {passwordMessage}
-                            </div>
-                        )}
-
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1">
-                                Current Password
-                            </label>
-                            <input
-                                type="password"
-                                required
-                                value={currentPassword}
-                                onChange={(e) => setCurrentPassword(e.target.value)}      // Điền vào ô current password
-                                className="w-full max-w-md px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-slate-900"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1">
-                                New Password
-                            </label>
-                            <input
-                                type="password"
-                                required
-                                minLength={6}
-                                value={newPassword}
-                                onChange={(e) => setNewPassword(e.target.value)}
-                                className="w-full max-w-md px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-slate-900"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1">
-                                Confirm New Password
-                            </label>
-                            <input
-                                type="password"
-                                required
-                                minLength={6}
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                className="w-full max-w-md px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-slate-900"
-                            />
-                        </div>
-
-                        <div className="pt-4 flex justify-start">
-                            <button
-                                type="submit"
-                                disabled={isPasswordSaving || !currentPassword || !newPassword || !confirmPassword}
-                                className="bg-slate-800 hover:bg-slate-900 disabled:bg-slate-400 text-white px-6 py-2 rounded-lg flex items-center gap-2 font-medium"
-                            >
-                                <Lock className="w-4 h-4" /> {isPasswordSaving ? "Updating..." : "Change Password"}
-                            </button>
-                        </div>
-                    </form>
-                </div>
-
-            </div>
-        </div>
+      <div className="py-16 text-center space-y-4">
+        <AlertCircle className="w-12 h-12 text-[var(--state-danger)] mx-auto" />
+        <h2 className="text-xl font-bold text-[var(--text-primary)]">Please Sign In</h2>
+        <p className="text-sm text-[var(--text-muted)]">
+          You must be signed in to manage your account settings.
+        </p>
+        <Link href="/auth">
+          <Button variant="primary" size="sm">
+            Sign In
+          </Button>
+        </Link>
+      </div>
     );
+  }
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    setProfileMessage(null);
+
+    try {
+      const res = await api.put(API_PATHS.USER_SETTINGS, { name });
+      if (res.status === 200) {
+        setProfileMessage({ type: "success", text: "Profile name updated successfully!" });
+        await update({ name });
+      } else {
+        setProfileMessage({
+          type: "error",
+          text: res.data?.error || "Failed to update profile name.",
+        });
+      }
+    } catch (err: any) {
+      setProfileMessage({
+        type: "error",
+        text: err.response?.data?.error || "Failed to update profile.",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordMessage(null);
+
+    if (newPassword !== confirmPassword) {
+      setPasswordMessage({ type: "error", text: "New passwords do not match." });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordMessage({
+        type: "error",
+        text: "New password must be at least 6 characters.",
+      });
+      return;
+    }
+
+    try {
+      setIsPasswordSaving(true);
+      const res = await api.post(API_PATHS.USER_PASSWORD, {
+        currentPassword,
+        newPassword,
+      });
+
+      if (res.status === 200) {
+        setPasswordMessage({ type: "success", text: "Password changed successfully!" });
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+      } else {
+        setPasswordMessage({
+          type: "error",
+          text: res.data?.error || "Failed to update password.",
+        });
+      }
+    } catch (err: any) {
+      setPasswordMessage({
+        type: "error",
+        text: err.response?.data?.error || "Failed to change password.",
+      });
+    } finally {
+      setIsPasswordSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 sm:space-y-8 max-w-3xl">
+      <PageHeader
+        title="Account &amp; Security Settings"
+        description="Manage your profile name, account credentials, and platform role."
+        badge={
+          <Badge variant={session.user?.role === "admin" ? "brand" : "info"}>
+            {session.user?.role || "student"} role
+          </Badge>
+        }
+      />
+
+      {/* Profile Details Card */}
+      <Card>
+        <div className="pb-3 border-b border-[var(--border-subtle)] mb-5">
+          <h3 className="text-base font-bold text-[var(--text-primary)] font-display flex items-center gap-2">
+            <User className="w-4 h-4 text-[var(--accent-brand-strong)]" />
+            Profile Details
+          </h3>
+          <p className="text-xs text-[var(--text-muted)]">
+            Update your public display name.
+          </p>
+        </div>
+
+        {profileMessage && (
+          <div
+            className={`mb-4 p-3 rounded-[var(--ui-radius-sm)] text-xs font-semibold flex items-center gap-2 ${
+              profileMessage.type === "success"
+                ? "bg-[#e8f7f0] border border-[#b2e5ce] text-[#166e4b]"
+                : "bg-[#fdede8] border border-[#f8c4b4] text-[#ab3d19]"
+            }`}
+          >
+            {profileMessage.type === "success" ? (
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 shrink-0" />
+            )}
+            <span>{profileMessage.text}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleUpdateProfile} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">
+              Email Address (Fixed)
+            </label>
+            <input
+              type="email"
+              disabled
+              value={session.user?.email || ""}
+              className="workbook-input bg-[var(--bg-canvas)] text-[var(--text-muted)] cursor-not-allowed font-mono"
+            />
+          </div>
+
+          <div>
+            <Input
+              label="Full Name"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Your full name"
+            />
+          </div>
+
+          <div className="pt-2 flex justify-end">
+            <Button variant="primary" size="sm" type="submit" loading={isSaving}>
+              <Save className="w-3.5 h-3.5 mr-1" />
+              <span>Save Profile Name</span>
+            </Button>
+          </div>
+        </form>
+      </Card>
+
+      {/* Change Password Card */}
+      <Card>
+        <div className="pb-3 border-b border-[var(--border-subtle)] mb-5">
+          <h3 className="text-base font-bold text-[var(--text-primary)] font-display flex items-center gap-2">
+            <Lock className="w-4 h-4 text-[var(--accent-brand-strong)]" />
+            Security &amp; Password
+          </h3>
+          <p className="text-xs text-[var(--text-muted)]">
+            Change your account password.
+          </p>
+        </div>
+
+        {passwordMessage && (
+          <div
+            className={`mb-4 p-3 rounded-[var(--ui-radius-sm)] text-xs font-semibold flex items-center gap-2 ${
+              passwordMessage.type === "success"
+                ? "bg-[#e8f7f0] border border-[#b2e5ce] text-[#166e4b]"
+                : "bg-[#fdede8] border border-[#f8c4b4] text-[#ab3d19]"
+            }`}
+          >
+            {passwordMessage.type === "success" ? (
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 shrink-0" />
+            )}
+            <span>{passwordMessage.text}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleUpdatePassword} className="space-y-4">
+          <Input
+            label="Current Password"
+            type="password"
+            required
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            placeholder="••••••••••••"
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="New Password"
+              type="password"
+              required
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="••••••••••••"
+            />
+            <Input
+              label="Confirm New Password"
+              type="password"
+              required
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="••••••••••••"
+            />
+          </div>
+
+          <div className="pt-2 flex justify-end">
+            <Button
+              variant="secondary"
+              size="sm"
+              type="submit"
+              loading={isPasswordSaving}
+            >
+              Update Password
+            </Button>
+          </div>
+        </form>
+      </Card>
+    </div>
+  );
 }

@@ -1,17 +1,15 @@
-//  Các đường dẫn url 
+// API route constants for client and server
 
 export const API_PATHS = {    
-    // Các đường dẫn cố định
+    // Fixed paths
     QUESTIONS: "/api/questions",
     RESULTS: "/api/results",
-    CHAT: "/api/chat",
     USER_SETTINGS: "/api/user/settings",
     USER_PASSWORD: "/api/user/password",
     TESTS: "/api/tests",
     AUTH_REGISTER: "/api/auth/register",
-    // Các đường dẫn động (thay đổi với từng câu)
-
+    
+    // Dynamic paths
     getQuestionsByTestId: (testId: string) => `/api/questions?testId=${testId}`,
     getQuestionExplanation: (questionId: string) => `/api/questions/${questionId}/explanation`,
-    getChatByQuestionId: (questionId: string) => `/api/chat?questionId=${questionId}`,    // lấy đoạn chat đối với AI của từng câu hỏi 
 };

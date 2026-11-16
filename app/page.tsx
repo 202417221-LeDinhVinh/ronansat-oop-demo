@@ -1,383 +1,532 @@
-// Trang chủ 
-
 "use client";
 
-import Image from "next/image";                     // Công cụ hiển thị ảnh (lazy loading,...) giúp hiển thị ảnh mượt
-import logo from "@/assets/sat-png-4.png";          //  ảnh logo
-import { useSession} from "next-auth/react";        // Thông tin phiên đăng nhập
-import Link from "next/link";                       // Công cụ tạo đường link -> Giúp bấm link mà k chớp màn hìn or tải lại web từ đầu
-import { useEffect, useState } from "react";        // Bộ nhớ qly từng component
-import TestCard from "@/components/TestCard";       // Khung hiển thị 1 bài test
-import Loading from "@/components/Loading";         // animation loading
-import ActivityHeatmap from "@/components/ActivityHeatmap";           // Component hiện lịch sử học tập 30 ngày
-import { Trophy, Flame, Target, BookOpen, Medal } from "lucide-react";       // icon
-import api from "@/lib/axios";                                        // công cụ gửi api
-import { API_PATHS } from "@/lib/apiPaths";                           // đường dẫn để gửi api
+import React, { useEffect, useState } from "react";
+import Link from "next/link";
+import { useSession } from "next-auth/react";
+import {
+  Trophy,
+  Award,
+  AlertCircle,
+  Sparkles,
+  BookOpen,
+  ArrowRight,
+  TrendingUp,
+  CheckCircle2,
+  Clock,
+  Play,
+  RotateCcw,
+} from "lucide-react";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  Area,
+  AreaChart,
+} from "recharts";
+import { Button } from "@/components/ui/Button";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { StatCard } from "@/components/ui/StatCard";
+import { CardSkeleton, TableSkeleton } from "@/components/ui/Skeleton";
+import { EmptyState } from "@/components/ui/EmptyState";
+import api from "@/lib/axios";
 
-export default function Dashboard() {
+interface ScorePoint {
+  date: string;
+  score: number;
+  testTitle?: string;
+  mode?: string;
+}
+
+interface RecentResult {
+  _id: string;
+  score?: number;
+  date?: string;
+  createdAt?: string;
+  mode?: string;
+  isSectional?: boolean;
+  sectionBreakdown?: {
+    readingAndWriting?: number;
+    math?: number;
+  };
+  testId?: {
+    _id?: string;
+    title?: string;
+  } | string;
+}
+
+export default function HomePage() {
   const { data: session, status } = useSession();
-  const [tests, setTests] = useState<any[]>([]);                // data các bài test được display
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const [loading, setLoading] = useState(true);          // loading animation
-  const [userStats, setUserStats] = useState({ 
-    testsTaken: 0,                                       // thông tin stats về số tests và điểm cao nhất
+  const [stats, setStats] = useState({
+    latestScore: 0,
     highestScore: 0,
+    testsTaken: 0,
+    errorLogsToReview: 0,
+    vocabDueCount: 0,
   });
-  const [userResults, setUserResults] = useState([]);        // Biến lưu results các bài test trong 30 ngày qua
-  const [sortOption, setSortOption] = useState("newest");    // biến lưu trạng thái sort, mặc định là newest
-  const [page, setPage] = useState(1);                       // biến lưu số trang user đang ở, mặc định ở trang 1
-  const [totalPages, setTotalPages] = useState(1);           // biến lưu tổng số trang
-  const limit = 6;
 
+  const [recentResults, setRecentResults] = useState<RecentResult[]>([]);
+  const [scoreTrend, setScoreTrend] = useState<ScorePoint[]>([]);
 
-  const [leaderboard, setLeaderboard] = useState<any[]>([]); // Biến lưu bảng xếp hạng
+  const fetchHomeData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
+      // 1. Fetch user stats and statistics snapshot
+      const [userStatsRes, statsRes, vocabDueRes, resultsRes] = await Promise.all([
+        api.get("/api/user/stats").catch(() => ({ data: {} })),
+        api.get("/api/statistics").catch(() => ({ data: {} })),
+        api.get("/api/vocab/due").catch(() => ({ data: {} })),
+        api.get("/api/results").catch(() => ({ data: {} })),
+      ]);
 
-  // 1. Biến nhớ lưu mốc thời gian đang được chọn (Mặc định là xem Tất cả)
-  const [selectedPeriod, setSelectedPeriod] = useState("All");
+      const userStats = userStatsRes.data?.stats || userStatsRes.data || {};
+      const statistics = statsRes.data?.statistics || {};
+      const vocabData = vocabDueRes.data || {};
+      const resultsData = resultsRes.data?.results || [];
 
+      const fullLengthResults = resultsData.filter((r: any) => !r.isSectional && r.mode !== "sectional");
+      const latestFullLength = fullLengthResults.length > 0 ? fullLengthResults[0] : null;
 
+      const latestScore =
+        statistics.latestScore ||
+        latestFullLength?.score ||
+        (resultsData.length > 0 ? resultsData[0]?.score : 0) ||
+        0;
 
+      const highestScore =
+        statistics.highestScore ||
+        userStats.highestScore ||
+        (fullLengthResults.length > 0
+          ? Math.max(...fullLengthResults.map((r: any) => r.score || 0))
+          : (resultsData.length > 0 ? resultsData[0]?.score : 0)) ||
+        0;
 
+      setStats({
+        latestScore,
+        highestScore,
+        testsTaken: statistics.totalTestsTaken || resultsData.length || 0,
+        errorLogsToReview: userStats.errorLogsToReview || 0,
+        vocabDueCount: vocabData.dueCount || 0,
+      });
 
-  // 2. Tự động quét kho đề thi, lấy 2 chữ đầu tiên của tên đề làm mốc thời gian (loại bỏ trùng lặp)
-  const uniquePeriods = ["All", ...Array.from(new Set(tests.map(t => {
-      const parts = t.title.split(' '); // Tách tên đề thành các từ
-      if (parts.length >= 2) return `${parts[0]} ${parts[1]}`; // Lấy từ số 1 và số 2 (VD: March 2026)
-      return "Other";
-  })))];
+      setRecentResults(resultsData.slice(0, 3));
 
-// 3. Mảng dữ liệu mới: Phân loại theo 3 trường hợp rõ ràng
-  const filteredTests = tests.filter(t => {
-    // Trường hợp 1: Nếu người dùng đang chọn xem "All Tests" -> Giữ lại bài này
-    if (selectedPeriod === "All") return true;
-    
-    // Trường hợp 2: Nếu người dùng bấm vào nút "Other"
-    // Lệnh split(' ') sẽ chặt tên bài test thành các từ. Nếu số từ nhỏ hơn 2 thì giữ lại.
-    if (selectedPeriod === "Other") return t.title.split(' ').length < 2;
-    
-    // Trường hợp 3: Người dùng bấm vào các mốc thời gian bình thường (VD: "March 2026")
-    // Giữ lại các bài test có tên bắt đầu bằng mốc thời gian đó
-    return t.title.startsWith(selectedPeriod);
-  });
+      // Build score trend (full-length only, 400-1600 scale)
+      if (statistics.scoreTrend && statistics.scoreTrend.length > 0) {
+        setScoreTrend(
+          statistics.scoreTrend.map((pt: any) => ({
+            date: pt.date ? pt.date.slice(5) : "",
+            score: pt.score,
+            testTitle: pt.testTitle,
+            mode: pt.mode,
+          }))
+        );
+      } else if (fullLengthResults.length > 0) {
+        const trend = [...fullLengthResults]
+          .reverse()
+          .filter((r: any) => (r.score || 0) >= 400)
+          .map((r: any) => ({
+            date: r.date ? r.date.slice(5, 10) : "",
+            score: r.score,
+            testTitle:
+              (typeof r.testId === "object" ? r.testId?.title : null) ||
+              r.testTitle ||
+              "SAT Practice",
+            mode: r.mode,
+          }));
+        setScoreTrend(trend);
+      }
+    } catch (err: any) {
+      console.error("Error loading home dashboard:", err);
+      setError("Failed to load dashboard metrics. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (session) {                    // Khi đã login
-      const fetchUserStats = async () => {     // Hàm đi lấy data user
-        try {
-          const statsRes = await api.get(`${API_PATHS.RESULTS}?days=30`);     // Lấy dữ liệu trong 30 ngày gần nhất, ?days=30 là điều kiện học data, sau ? là điều kiện data của user
-          const statsData = statsRes.data;                                    // data api trả về nhiều cái thừa (header, mã trạng thái,...) nên chỉ lấy thông tin cần thiết
-          if (statsData.results) { 
-            setUserResults(statsData.results);               // Nếu tồn tại dữ liệu => Lưu vào biến nhớ setUserResult để Heatmap có data vẽ lên biểu đồ 
-          }
-
-          const userRes = await api.get('/api/user/stats');   // Lấy thêm thông tin từ đường dẫn chứa stats của user
-          const userData = userRes.data;                      // Chỉ lưu data cần thiết
-          if (userData) {
-            setUserStats({                                    // Nếu tồn tại data thì lưu kết quả vào biến nhớ
-              testsTaken: userData.testsTaken || 0,           // Update số test từng làm + highest score vào biến nhớ, k có data thì coi là 0 tránh sập
-              highestScore: userData.highestScore || 0,
-            });
-          }
-
-        } catch (e) {
-          console.error("Failed to load user stats", e);
-        }
-      };   // Kết thúc hàm lấy data user
-
-
-      const fetchLeaderboard = async () => {
-        try {
-          const res = await api.get('/api/leaderboard');
-          setLeaderboard(res.data.leaderboard || []);
-        } catch (e) {
-          console.error("Failed to load leaderboard", e);
-        }
-      };
-
-      fetchUserStats();   // Gọi, bật hàm để lấy data user ngay khi user login
-      fetchLeaderboard();
+    if (session) {
+      fetchHomeData();
+    } else if (status !== "loading") {
+      setLoading(false);
     }
-  }, [session]);      // session thay đổi là chạy đoạn này
+  }, [session, status]);
 
-  useEffect(() => {                       // Lấy danh sách bài thi, kích hoạt mỗi khi đổi trang (1, 2, 3,...) or đổi thứ tự sort bài thi
-    const fetchTests = async () => {    // Hàm lấy danh sách bài thi
-      setLoading(true);                 // Bật animation loading
-      try {
-        let sortBy = "createdAt";       // Luật 1: Sắp xếp theo ngày tạo ra bài test
-        let sortOrder = "desc";         // Luật 2: Giảm dần
-                                        // Kết hợp 2 luật thành = newest -> Option sort mặc định
-
-        if (sortOption === "oldest") {     // Xử lý khi đổi cách sort
-          sortOrder = "asc";               // Bài cũ nhất lên trên
-        } else if (sortOption === "title_asc") {    // Đổi cách sort
-          sortBy = "title";                         // Sort từ A -> Z 
-          sortOrder = "asc";
-        } else if (sortOption === "title_desc") {  // Z -> A
-          sortBy = "title";
-          sortOrder = "desc";
-        }
-
-        const res = await api.get(`${API_PATHS.TESTS}?page=${page}&limit=${limit}&sortBy=${sortBy}&sortOrder=${sortOrder}`);  // Lấy data test theo các điều kiện: Trang số mấy, mỗi trang mấy bài, tiêu chí sort
-        setTests(res.data.tests || []);                           // Lấy data về các bài test, lưu vào biến setTests để in ra màn hình, k có data thì lưu biến rỗng tránh sập
-        if (res.data.pagination) {                                // Logic xử lý có cần thêm trang không được backend xử lý, nếu cần thêm trang thì sẽ tồn tại res.data.pagination
-          setTotalPages(res.data.pagination.totalPages);      // Kiểm tra máy chủ có gửi thông tin về số trang không, pagination là phân ra nhiều trang
-                                                              // Có phân trang thì lưu vào biến nhớ để vẽ đúng số lượng nút bấm cho các trang (ví dụ có 7 test  nhưng 1 trang chỉ dược 6 test => Cần 2 trang)
-        }
-      } catch (e) {
-        console.error("Failed to fetch tests", e);
-      } finally {
-        setLoading(false);       // Lấy data bài test xong thì tắt loading
-      }
-    }
-
-    fetchTests();      // Gọi hàm lấy data các bài test
-  }, [page, sortOption]);
-
-  if (status === "loading") {
-    return <Loading />;
-  }
-  if (status === "unauthenticated" || !session) {
+  // -------------------------------------------------------------------------
+  // Logged Out Landing View
+  // -------------------------------------------------------------------------
+  if (!session && status !== "loading") {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col">
-        <header className="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <Image src={logo} alt="SATTOT Logo" width={32} height={32} className="rounded object-contain" />
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">Ronan SAT</h1>
-          </div>
-          <div className="space-x-4">
-            <Link href="/auth" className="text-slate-600 hover:text-slate-900 font-medium">
-              Log in
-            </Link>
-            <Link
-              href="/auth"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium"
-            >
-              Sign up free
-            </Link>
-          </div>
-        </header>
+      <div className="py-8 sm:py-16 flex flex-col items-center text-center">
+        <Badge variant="brand" className="mb-4">
+          University OOP Laboratory Project · Digital SAT Suite
+        </Badge>
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-[var(--text-primary)] font-display max-w-3xl leading-tight">
+          Master the Digital SAT with precision Object-Oriented software.
+        </h1>
+        <p className="mt-4 text-base sm:text-lg text-[var(--text-muted)] max-w-2xl leading-relaxed">
+          RonanSAT provides authentic Bluebook-style practice with full-length modular timing,
+          deduplicated error logs with inline retries, Leitner spaced-repetition vocabulary,
+          and robust analytics.
+        </p>
 
-        <main className="flex-1 flex flex-col items-center justify-center text-center px-4">
-          <h2 className="text-5xl font-extrabold text-slate-900 tracking-tight max-w-3xl mb-6 leading-tight">
-            Master the Digital SAT with Realistic Practice
-          </h2>
-          <p className="text-xl text-slate-600 max-w-2xl mb-10">
-            Experience the exact same interface, tools, and testing environment you'll face on test day. Track your progress and pinpoint weaknesses.
-          </p>
-          <Link
-            href="/auth"
-            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full text-lg font-semibold transition-all"
-          >
-            Start Your First Practice Test
+        <div className="mt-8 flex flex-col sm:flex-row items-center gap-3">
+          <Link href="/auth">
+            <Button variant="primary" size="lg" className="px-8 shadow-[var(--ui-shadow-md)]">
+              <span>Sign In to Practice</span>
+              <ArrowRight className="w-4 h-4 ml-1" />
+            </Button>
           </Link>
-        </main>
+          <Link href="/auth">
+            <Button variant="secondary" size="lg" className="px-8">
+              Explore Demo Accounts
+            </Button>
+          </Link>
+        </div>
+
+        {/* Feature Highlights Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16 max-w-5xl w-full text-left">
+          <Card>
+            <div className="w-10 h-10 rounded-[var(--ui-radius-sm)] bg-[var(--accent-brand-tint)] text-[var(--accent-brand-strong)] flex items-center justify-center font-bold mb-3">
+              <BookOpen className="w-5 h-5" />
+            </div>
+            <h3 className="text-base font-bold text-[var(--text-primary)]">
+              Timed Modular Practice
+            </h3>
+            <p className="mt-1 text-xs text-[var(--text-muted)] leading-normal">
+              Full-length 4-module SAT tests and sectional drills with integrated KaTeX LaTeX,
+              Desmos graphing calculator, and SPR answer equivalence.
+            </p>
+          </Card>
+
+          <Card>
+            <div className="w-10 h-10 rounded-[var(--ui-radius-sm)] bg-[#fdede8] text-[var(--state-danger)] flex items-center justify-center font-bold mb-3">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+            <h3 className="text-base font-bold text-[var(--text-primary)]">
+              Deduplicated Error Log
+            </h3>
+            <p className="mt-1 text-xs text-[var(--text-muted)] leading-normal">
+              Every missed or omitted question is tracked with reason classification, student
+              notes, and immediate inline retry validation.
+            </p>
+          </Card>
+
+          <Card>
+            <div className="w-10 h-10 rounded-[var(--ui-radius-sm)] bg-[#e8f7f0] text-[var(--state-success)] flex items-center justify-center font-bold mb-3">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <h3 className="text-base font-bold text-[var(--text-primary)]">
+              Leitner Spaced Repetition
+            </h3>
+            <p className="mt-1 text-xs text-[var(--text-muted)] leading-normal">
+              5-box Leitner scheduling with standard rating grades (Again, Hard, Good, Easy)
+              to retain essential SAT high-frequency words.
+            </p>
+          </Card>
+        </div>
       </div>
     );
   }
 
-  // Dashboard for logged in user
+  // -------------------------------------------------------------------------
+  // Logged In Student Dashboard
+  // -------------------------------------------------------------------------
   return (
-    <div className="min-h-screen bg-slate-50 pb-12">
+    <div className="space-y-6 sm:space-y-8">
+      {/* Top Greeting Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[var(--text-primary)] font-display">
+            Welcome back, {session?.user?.name || "Student"}
+          </h1>
+          <p className="mt-1 text-sm text-[var(--text-muted)]">
+            Here is your SAT preparation overview and today&apos;s recommended tasks.
+          </p>
+        </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
-        {/* User Stats Panel */}
-        <section className="mb-10">
-          <h2 className="text-lg font-bold text-slate-900 mb-4">Your Progress</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white rounded-xl border border-slate-200 p-6 flex items-center">
-              <div className="bg-blue-100 p-3 rounded-lg mr-4">
-                <Trophy className="w-6 h-6 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-slate-500">Highest Score</p>
-                <p className="text-2xl font-bold text-slate-900">
-                  {userStats.highestScore > 0 ? userStats.highestScore : "—"}
+        <Link href="/practice">
+          <Button variant="primary" size="md" className="shadow-[var(--ui-shadow-xs)]">
+            <Play className="w-4 h-4 mr-1.5 fill-current" />
+            <span>Continue Practice</span>
+          </Button>
+        </Link>
+      </div>
+
+      {/* Error Banner if any */}
+      {error && (
+        <div className="p-4 rounded-[var(--ui-radius)] bg-[#fdede8] border border-[#f8c4b4] text-[#ab3d19] text-sm flex items-center justify-between">
+          <span>{error}</span>
+          <Button variant="secondary" size="sm" onClick={fetchHomeData}>
+            Retry
+          </Button>
+        </div>
+      )}
+
+      {/* 4 Stat Cards Row */}
+      {loading ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <CardSkeleton />
+          <CardSkeleton />
+          <CardSkeleton />
+          <CardSkeleton />
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            label="Latest Score"
+            value={stats.latestScore > 0 ? stats.latestScore : "—"}
+            sublabel={
+              stats.latestScore >= 400
+                ? "Full-Length · 400-1600"
+                : stats.latestScore >= 200
+                ? "Sectional · 200-800"
+                : "No attempts yet"
+            }
+            icon={<Award className="w-4 h-4" />}
+          />
+          <StatCard
+            label="Highest Score"
+            value={stats.highestScore > 0 ? stats.highestScore : "—"}
+            sublabel={
+              stats.highestScore >= 400
+                ? "Full-Length · 400-1600"
+                : stats.testsTaken > 0
+                ? `Across ${stats.testsTaken} tests taken`
+                : "Take first test"
+            }
+            icon={<Trophy className="w-4 h-4" />}
+          />
+          <Link href="/error-log">
+            <StatCard
+              label="Mistakes to Review"
+              value={stats.errorLogsToReview}
+              sublabel="In your Error Log"
+              icon={<AlertCircle className="w-4 h-4" />}
+              className="hover:border-[var(--state-danger)]"
+            />
+          </Link>
+          <Link href="/vocab">
+            <StatCard
+              label="Vocab Due Today"
+              value={stats.vocabDueCount}
+              sublabel="Cards in Leitner boxes"
+              icon={<Sparkles className="w-4 h-4" />}
+              className="hover:border-[var(--accent-brand)]"
+            />
+          </Link>
+        </div>
+      )}
+
+      {/* CTA Practice Banner + Sparkline Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Practice Hero Card */}
+        <Card className="lg:col-span-2 flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-[var(--bg-surface)] to-[var(--accent-brand-tint)]/25">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Badge variant="brand">Active Session</Badge>
+              <span className="text-xs text-[var(--text-muted)] font-medium">Digital SAT Prep</span>
+            </div>
+            <h2 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)] font-display">
+              Ready for your next full-length exam?
+            </h2>
+            <p className="mt-2 text-sm text-[var(--text-muted)] max-w-xl leading-relaxed">
+              Experience the exact test day environment: 4 timed modules (2 Reading &amp; Writing,
+              2 Math) with built-in Desmos calculator and automated scoring.
+            </p>
+          </div>
+
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <Link href="/practice">
+              <Button variant="primary" size="md">
+                <Play className="w-4 h-4 mr-1 fill-current" />
+                <span>Start Full-Length Test</span>
+              </Button>
+            </Link>
+            <Link href="/practice">
+              <Button variant="secondary" size="md">
+                Sectional Modules
+              </Button>
+            </Link>
+            <Link href="/vocab">
+              <Button variant="ghost" size="md">
+                Review Vocab ({stats.vocabDueCount})
+              </Button>
+            </Link>
+          </div>
+        </Card>
+
+        {/* Score Trend Sparkline Card */}
+        <Card className="flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                Score Trajectory
+              </span>
+              <TrendingUp className="w-4 h-4 text-[var(--accent-brand-strong)]" />
+            </div>
+            <h3 className="text-base font-bold text-[var(--text-primary)]">Score Progression</h3>
+            <p className="text-xs text-[var(--text-muted)]">Past attempts over time</p>
+          </div>
+
+          <div className="h-36 w-full mt-4">
+            {scoreTrend.length >= 2 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={scoreTrend} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="scoreGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--accent-brand)" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="var(--accent-brand)" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e7e3dd" vertical={false} />
+                  <XAxis dataKey="date" stroke="#78716c" fontSize={10} tickLine={false} />
+                  <YAxis domain={["dataMin - 50", "dataMax + 50"]} stroke="#78716c" fontSize={10} tickLine={false} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "var(--bg-surface)",
+                      borderColor: "var(--border-subtle)",
+                      borderRadius: "var(--ui-radius-sm)",
+                      fontSize: "12px",
+                      boxShadow: "var(--ui-shadow)",
+                    }}
+                    formatter={(val: any) => [`${val} pts`, "Score"]}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="score"
+                    stroke="var(--accent-brand-strong)"
+                    strokeWidth={2.5}
+                    fillOpacity={1}
+                    fill="url(#scoreGrad)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-center p-3 rounded-[var(--ui-radius-sm)] bg-[var(--bg-canvas)]">
+                <TrendingUp className="w-6 h-6 text-[var(--text-muted)] mb-1" />
+                <p className="text-xs text-[var(--text-muted)] font-medium">
+                  Take at least 2 tests to render trend sparkline
                 </p>
               </div>
-            </div>
-
-            <div className="bg-white rounded-xl border border-slate-200 p-6 flex flex-col justify-center">
-              <div className="flex items-center mb-2">
-                <div className="bg-orange-100 p-2 sm:p-3 rounded-lg mr-3 sm:mr-4">
-                  <Flame className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" />
-                </div>
-                <div>
-                  <p className="text-xs sm:text-sm font-medium text-slate-500">Activity (30 Days)</p>
-                </div>
-              </div>
-              <div className="w-full mt-auto">
-                {userResults.length > 0 ? (
-                  <ActivityHeatmap results={userResults} />
-                ) : (
-                  <p className="text-[10px] text-slate-400 mt-2 text-center">Complete a test to see activity.</p>
-                )}
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl border border-slate-200 p-6 flex items-center">
-              <div className="bg-emerald-100 p-3 rounded-lg mr-4">
-                <Target className="w-6 h-6 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-slate-500">Tests Completed</p>
-                <p className="text-2xl font-bold text-slate-900">{userStats.testsTaken}</p>
-              </div>
-            </div>
+            )}
           </div>
-        </section>
+        </Card>
+      </div>
 
-
-        <section className="mb-12">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="bg-yellow-100 p-2 rounded-lg">
-              <Medal className="w-5 h-5 text-yellow-600" />
-            </div>
-            <h2 className="text-xl font-bold text-slate-900">Weekly Top Achievers (Số bài test đạt cao hơn 1450)</h2>
+      {/* Recent Results Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg sm:text-xl font-bold text-[var(--text-primary)] font-display">
+              Recent Test Results
+            </h2>
+            <Badge variant="muted">{recentResults.length}</Badge>
           </div>
-          
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-slate-600">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-800">
-                  <tr>
-                    <th className="px-6 py-4 font-bold w-24">Rank</th>
-                    <th className="px-6 py-4 font-bold">Student Name</th>
-                    <th className="px-6 py-4 font-bold text-center">Tests Completed</th>
-                    <th className="px-6 py-4 font-bold text-center">Highest Score</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {leaderboard.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="px-6 py-8 text-center text-slate-500 italic">
-                        Chưa có học sinh nào đạt được bài test cao hơn 1450 điểm trong tuần này.
-                      </td>
-                    </tr>
-                  ) : (
-                    leaderboard.map((student, index) => (
-                      <tr key={student._id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4 font-semibold">
-                          {/* Hiệu ứng Top 1 2 3 sẽ có icon cúp, còn lại là số bình thường */}
-                          {index === 0 ? <span className="text-yellow-500 text-xl" title="Top 1">🥇 1</span> : 
-                           index === 1 ? <span className="text-slate-400 text-xl" title="Top 2">🥈 2</span> : 
-                           index === 2 ? <span className="text-amber-600 text-xl" title="Top 3">🥉 3</span> : 
-                           <span className="text-slate-500 ml-1">#{index + 1}</span>}
-                        </td>
-                        <td className="px-6 py-4 font-medium text-slate-900">{student.name}</td>
-                        <td className="px-6 py-4 text-center font-bold text-blue-600">{student.testsCompleted}</td>
-                        <td className="px-6 py-4 text-center font-bold text-emerald-600">{student.highestScore}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
+          <Link
+            href="/results"
+            className="text-xs font-semibold text-[var(--accent-brand-strong)] hover:underline flex items-center gap-1"
+          >
+            <span>View all past results</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
 
+        {loading ? (
+          <TableSkeleton rows={3} />
+        ) : recentResults.length === 0 ? (
+          <EmptyState
+            icon={<BookOpen className="w-6 h-6" />}
+            title="No past results yet"
+            description="Take your first practice test to evaluate your performance across Reading, Writing, and Math."
+            action={
+              <Link href="/practice">
+                <Button variant="primary" size="sm">
+                  Start Practice Test
+                </Button>
+              </Link>
+            }
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {recentResults.map((result: any) => {
+              const testTitle =
+                (typeof result.testId === "object" ? result.testId?.title : null) ||
+                result.testTitle ||
+                "Official SAT Practice Test";
+              const isSectional = result.isSectional || result.mode === "sectional";
+              const scoreVal = isSectional
+                ? Math.max(200, result.score ?? 200)
+                : Math.max(400, result.score ?? 400);
+              const dateStr = result.date || result.createdAt || "";
+              const formattedDate = dateStr ? new Date(dateStr).toLocaleDateString() : "Recent";
 
-        {/* Test Library - ĐÃ ĐƯỢC CHIA CỘT */}
-        <section>
-          <div className="flex flex-col md:flex-row gap-8">
-            
-            {/* CỘT TRÁI: Thanh Sidebar điều hướng theo thời gian */}
-            <div className="w-full md:w-1/4 flex-shrink-0">
-              {/* sticky top-24 giúp thanh này dính trên màn hình khi cuộn chuột */}
-              <div className="bg-white rounded-xl border border-slate-200 p-5 sticky top-24">
-                <h2 className="text-lg font-bold text-slate-800 mb-4 pb-3 border-b border-slate-100">
-                  Filter by Date
-                </h2>
-                <div className="flex flex-col gap-2">
-                  {uniquePeriods.map((period, index) => (
-                    <button
-                      key={index}
-                      onClick={() => { 
-                        setSelectedPeriod(period); 
-                        setPage(1); // Cực kì quan trọng: Reset về trang 1 khi đổi bộ lọc
-                      }}
-                      className={`text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                        selectedPeriod === period 
-                          ? "bg-blue-50 text-blue-700 border border-blue-200 shadow-sm" // Nổi bật mục đang chọn
-                          : "text-slate-600 hover:bg-slate-50 border border-transparent"
-                      }`}
-                    >
-                      {period === "All" ? "All Tests" : period}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
+              return (
+                <Card
+                  key={result._id}
+                  className="flex flex-col justify-between hover:border-[var(--accent-brand)] transition-colors duration-150"
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <Badge variant={isSectional ? "info" : "brand"} size="sm">
+                        {isSectional ? "Sectional" : "Full-Length"}
+                      </Badge>
+                      <span className="text-[11px] text-[var(--text-muted)] flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {formattedDate}
+                      </span>
+                    </div>
 
-            {/* CỘT PHẢI: Lưới danh sách đề thi */}
-            <div className="w-full md:w-3/4">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 border-b border-transparent">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-2xl font-bold text-slate-900">Practice Test Library</h2>
-                  {loading && <span className="text-sm text-slate-500 animate-pulse">Syncing...</span>}
-                </div>
+                    <h3 className="font-bold text-sm text-[var(--text-primary)] line-clamp-1">
+                      {testTitle}
+                    </h3>
 
-                <div className="flex items-center gap-2">
-                  <label htmlFor="sort-tests" className="text-sm font-medium text-slate-600">Sort by:</label>
-                  <select
-                    id="sort-tests"
-                    value={sortOption}    // Hiển thị ra màn hình lựa chọn Sort hiện tại
-                    onChange={(e) => { setSortOption(e.target.value); setPage(1); }}    // Cập nhật Sort và về trang 1
-                    className="bg-white border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 outline-none"
-                  >
-                    <option value="newest">Newest First</option>
-                    <option value="oldest">Oldest First</option>
-                    <option value="title_asc">Title (A-Z)</option>
-                    <option value="title_desc">Title (Z-A)</option>
-                  </select>
-                </div>
-              </div>
+                    {isSectional && result.sectionalSubject && (
+                      <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                        {result.sectionalSubject} · Module {result.sectionalModule || 1}
+                      </p>
+                    )}
 
-              {loading ? (
-                <Loading />
-              ) : filteredTests.length === 0 ? (
-                <div className="text-center py-16 bg-white rounded-xl border border-slate-200 border-dashed">
-                  <BookOpen className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-slate-900">No tests found for this period</h3>
-                </div>
-              ) : (
-                <>
-                  {/* Điều chỉnh Grid thành 2 cột to để vừa vặn với kích thước mới (vì bên trái đã chiếm 1 khoảng) */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {/* BẮT BUỘC PHẢI DÙNG filteredTests Ở ĐÂY */}
-                    {filteredTests.map((test: any) => (
-                      <TestCard key={test._id} test={test} />
-                    ))}
+                    <div className="mt-3 flex items-baseline gap-2">
+                      <span className="text-2xl font-extrabold text-[var(--text-primary)]">
+                        {scoreVal}
+                      </span>
+                      <span className="text-xs text-[var(--text-muted)]">
+                        {isSectional ? "/ 800 section" : "/ 1600 total"}
+                      </span>
+                    </div>
+
+                    {result.sectionBreakdown && !isSectional && (
+                      <div className="mt-2.5 flex items-center gap-3 text-xs text-[var(--text-muted)] pt-2 border-t border-[var(--border-subtle)]">
+                        <span>R&amp;W: <strong className="text-[var(--text-primary)]">{result.sectionBreakdown.readingAndWriting || 0}</strong></span>
+                        <span>Math: <strong className="text-[var(--text-primary)]">{result.sectionBreakdown.math || 0}</strong></span>
+                      </div>
+                    )}
                   </div>
 
-                  {!loading && totalPages > 1 && (      // nếu đang k load và số trang phải > 1
-                    <div className="flex justify-center items-center mt-8 gap-4">
-                      <button
-                        onClick={() => setPage(p => Math.max(1, p - 1))}     // Lùi trang
-                        disabled={page === 1}                                // Chặn lùi nếu ở trang 1 
-                        className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Previous
-                      </button>
-                      <span className="text-sm font-medium text-slate-600">
-                        Page {page} of {totalPages}
-                      </span>
-                      <button
-                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}  // Tiến trang
-                        disabled={page === totalPages}                             // Chặn tiến nếu ở trang cuối
-                        className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Next
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-
+                  <div className="mt-4 pt-3 border-t border-[var(--border-subtle)]">
+                    <Link href={`/results/${result._id}`} className="block">
+                      <Button variant="secondary" size="sm" className="w-full">
+                        <span>Review Questions</span>
+                        <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                      </Button>
+                    </Link>
+                  </div>
+                </Card>
+              );
+            })}
           </div>
-        </section>
-      </main>
+        )}
+      </div>
     </div>
   );
 }

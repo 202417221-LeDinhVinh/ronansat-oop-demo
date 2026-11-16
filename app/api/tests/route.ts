@@ -1,12 +1,9 @@
-// Hàm routing giao việc cho Controller xử lý tests tùy vào là GET hay POST
-
-
-import { testController } from "@/lib/controllers/testController";
+import { container } from "@/lib/container";
 
 export async function GET(req: Request) {
-    return testController.getTests(req);
+    return container.getTestsController.handle(req);
 }
 
 export async function POST(req: Request) {
-    return testController.createTest(req);
+    return container.adminTestsController.handle(req);
 }

@@ -35,7 +35,8 @@ async function runDemo() {
                     dbName: "ronansat",
                 },
             });
-            mongoUri = mongod.getUri();
+            const baseUri = mongod.getUri();
+            mongoUri = baseUri.endsWith("/") ? `${baseUri}ronansat` : `${baseUri}/ronansat`;
             console.log(`[Database] In-memory MongoDB running at: ${mongoUri}`);
         } catch (err: any) {
             console.warn(`[Database] Fixed port ${DEFAULT_FIXED_PORT} failed (${err.message}). Falling back to dynamic port...`);
@@ -44,7 +45,8 @@ async function runDemo() {
                     dbName: "ronansat",
                 },
             });
-            mongoUri = mongod.getUri();
+            const baseUri = mongod.getUri();
+            mongoUri = baseUri.endsWith("/") ? `${baseUri}ronansat` : `${baseUri}/ronansat`;
             console.log(`[Database] In-memory MongoDB running at: ${mongoUri}`);
         }
     }

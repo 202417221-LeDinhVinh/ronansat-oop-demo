@@ -5,18 +5,24 @@ import mongoose from "mongoose";
  * in development. This prevents connections growing exponentially
  * during API Route usage.
  */
-let cached = (global as any).mongoose;
-
-if (!cached) {
-  cached = (global as any).mongoose = { conn: null, promise: null };
+interface MongooseConnectionCache {
+  conn: typeof mongoose | null;
+  promise: Promise<typeof mongoose> | null;
 }
+
+declare global {
+  var mongooseConnection: MongooseConnectionCache | undefined;
+}
+
+const cached: MongooseConnectionCache = global.mongooseConnection || { conn: null, promise: null };
+global.mongooseConnection = cached;
 
 async function dbConnect() {
   if (cached.conn) {
     return cached.conn;
   }
 
-  const MONGODB_URI = process.env.MONGODB_URI;
+  const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27018/ronansat";
 
   if (!MONGODB_URI) {
     throw new Error(

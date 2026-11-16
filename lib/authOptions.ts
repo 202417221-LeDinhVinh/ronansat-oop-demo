@@ -1,8 +1,6 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
-import dbConnect from "@/lib/mongodb";
-import User from "@/lib/models/User";
+import { container } from "@/lib/container";
 
 export const authOptions: NextAuthOptions = {
     providers: [
@@ -17,27 +15,21 @@ export const authOptions: NextAuthOptions = {
                     throw new Error("Invalid credentials");
                 }
 
-                await dbConnect();
+                try {
+                    const user = await container.authService.validateCredentials(
+                        credentials.email,
+                        credentials.password
+                    );
 
-                // Find user and explicitly select password to compare
-                const user = await User.findOne({ email: credentials.email }).select("+password");
-
-                if (!user || !user.password) {
+                    return {
+                        id: user.id,
+                        name: user.name,
+                        email: user.email.value,
+                        role: user.role,
+                    };
+                } catch {
                     throw new Error("Invalid credentials");
                 }
-
-                const isPasswordCorrect = await bcrypt.compare(credentials.password, user.password);
-
-                if (!isPasswordCorrect) {
-                    throw new Error("Invalid credentials");
-                }
-
-                return {
-                    id: user._id.toString(),
-                    name: user.name,
-                    email: user.email,
-                    role: user.role,
-                };
             },
         }),
     ],
@@ -52,7 +44,7 @@ export const authOptions: NextAuthOptions = {
         async session({ session, token }) {
             if (session.user) {
                 session.user.id = token.id as string;
-                session.user.role = token.role as "user" | "admin";
+                session.user.role = token.role as "student" | "admin" | "user";
             }
             return session;
         },
@@ -63,5 +55,5 @@ export const authOptions: NextAuthOptions = {
     pages: {
         signIn: "/auth",
     },
-    secret: process.env.NEXTAUTH_SECRET,
+    secret: process.env.NEXTAUTH_SECRET || "ronansat-oop-demo-secret-key-2026",
 };

@@ -1,149 +1,210 @@
-// FE, trang hiển thị form cho phép login và sign up
-
 "use client";
 
-import { useState } from "react";
-import { signIn } from "next-auth/react";       // để kiểm tra email và pass
-import { useRouter } from "next/navigation";    // Chuyển hướng routing
-import api from "@/lib/axios";                  // gửi api từ FE tới BE
+import React, { useState } from "react";
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import BrandLogo from "@/components/BrandLogo";
+import { Card } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import api from "@/lib/axios";
 import { API_PATHS } from "@/lib/apiPaths";
 
 export default function AuthPage() {
-    const router = useRouter();                     // Máy routing
-    const [isLogin, setIsLogin] = useState(true);   // Chế độ ban đầu là màn hình login, false thì chuyển sang sign up
-    const [email, setEmail] = useState("");         // Quản lý ndung nhập ô email
-    const [password, setPassword] = useState("");   // Quản lý ndung nhập ô pass
-    const [name, setName] = useState("");           // Quản lý ndung nhập ô name
-    const [error, setError] = useState("");         // Tbao lỗi
-    const [loading, setLoading] = useState(false);  // Trạng thái loading để bật/tắt animation, mặc định là đang k load
+  const router = useRouter();
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-    const handleSubmit = async (e: React.FormEvent) => {   // Khi ấn nút login/sign up
-        e.preventDefault();
-        setError("");            // reset thông báo lỗi trước cho sạch
-        setLoading(true);        // Hiển thị đang load và chặn k cho gửi nữa tránh yêu cầu rác
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
-        try {
-            if (isLogin) {     // Nếu bấm submit mà đang ở trang login
-                const res = await signIn("credentials", {     // Dùng a bảo vệ signIn đi vào DB, tìm email và check pass có đúng không
-                    email,
-                    password,
-                    redirect: false,                          // Mặc định khi NextAuth kiểm tra xong thì sẽ redirect sang trang khác => Disable tính năng đó
-                });
+    try {
+      if (isLogin) {
+        const res = await signIn("credentials", {
+          email,
+          password,
+          redirect: false,
+        });
 
-                if (res?.error) {               // Nếu res có tồn tại (để tránh xập) và có error thì báo error
-                    setError(res.error);
-                } else {
-                    router.push("/");    // Nếu k có lỗi thì route user về trang chủ
-                    router.refresh();    // Ấn refresh: Báo server không dùng bản nháp (chứa thông tin trang login) nữa mà F5 tải lại thông tin của trang chủ
-                }
-            } else {     // Tức là đang ở trang sign up
-                const res = await api.post(API_PATHS.AUTH_REGISTER, { email, password, name });   // Lấy các thông tin email pass name để gửi 1 yêu cầu post về BE, mất tgian nên await
-                // Ở đây dùng api nên yêu cầu được gửi tới file api để lưu vào DB luôn ở dòng này
-                
-                //Nếu BE bảo kết quả thành công thì tự động route về trang chủ luôn, k cần điền lại ở Login
-                if (res.status === 200) {
-                    await signIn("credentials", { email, password, redirect: false });
-                    router.push("/");
-                    router.refresh();
-                } else {        // BE báo lỗi
-                    setError(res.data.message || "Registration failed");
-                }
-            }
-        } catch (err: any) {    
-            setError(err.response?.data?.message || err.response?.data?.error || "An unexpected error occurred");
-        } finally {     // Tắt animation lỗi và trả lại function cho nút gửi
-            setLoading(false);
+        if (res?.error) {
+          setError(res.error);
+        } else {
+          router.push("/");
+          router.refresh();
         }
-    };
+      } else {
+        const regRes = await api.post(API_PATHS.AUTH_REGISTER, {
+          email,
+          password,
+          name,
+        });
 
-    return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50">
-            <div className="max-w-md w-full p-8 bg-white rounded-xl border border-slate-100">
-                <div className="text-center mb-8">
-                    <h1 className="text-3xl font-bold text-slate-900">
-                        {isLogin ? "Welcome Back" : "Create Account"}
-                    </h1>
-                    <p className="text-slate-500 mt-2">
-                        {isLogin
-                            ? "Sign in to continue your SAT practice"
-                            : "Start your journey to a higher score"}
-                    </p>
-                </div>
+        if (regRes.status === 200 || regRes.status === 201) {
+          const loginRes = await signIn("credentials", {
+            email,
+            password,
+            redirect: false,
+          });
+          if (loginRes?.error) {
+            setError(loginRes.error);
+          } else {
+            router.push("/");
+            router.refresh();
+          }
+        } else {
+          setError(regRes.data?.message || "Registration failed");
+        }
+      }
+    } catch (err: any) {
+      setError(
+        err.response?.data?.message ||
+          err.response?.data?.error ||
+          "An unexpected authentication error occurred"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
-                {error && (
-                    <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm">
-                        {error}
-                    </div>
-                )}
+  const handleFillDemo = (demoEmail: string, demoPass: string) => {
+    setEmail(demoEmail);
+    setPassword(demoPass);
+    setIsLogin(true);
+    setError("");
+  };
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    {!isLogin && (
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">
-                                Full Name
-                            </label>
-                            <input
-                                type="text"
-                                required
-                                value={name}  // value quyết định ô nhập liệu hiển thị gì ra màn hình
-                                onChange={(e) => setName(e.target.value)}    // Quản lý việc điền name vào ô nhập email
-                                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all"
-                                placeholder="John Doe"
-                            />
-                        </div>
-                    )}
-
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                            Email Address
-                        </label>
-                        <input
-                            type="email"
-                            required
-                            value={email}                                  // Hiện những gì user đang type ra ô email   
-                            onChange={(e) => setEmail(e.target.value)}     // Quản lý việc điền email vào ô email
-                            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all"
-                            placeholder="you@example.com"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                            Password
-                        </label>
-                        <input
-                            type="password"
-                            required
-                            value={password}                                   // Hiện những gì user đang type ra ô pass 
-                            onChange={(e) => setPassword(e.target.value)}      // Quản lý việc điền pass vào ô pass
-                            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all"
-                            placeholder="••••••••"
-                        />
-                    </div>
-
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg duration-200 disabled:opacity-50"
-                    >
-                        {loading ? "Please wait..." : isLogin ? "Sign In" : "Register"}
-                    </button>
-                </form>
-
-                <div className="mt-6 text-center">
-                    <button
-                        onClick={() => {
-                            setIsLogin(!isLogin);
-                            setError("");
-                        }}
-                        className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
-                    >
-                        {isLogin
-                            ? "Don't have an account? Sign up"
-                            : "Already have an account? Sign in"}
-                    </button>
-                </div>
-            </div>
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-[var(--bg-canvas)]">
+      <div className="w-full max-w-md">
+        {/* Brand Logo Header */}
+        <div className="flex flex-col items-center mb-6">
+          <BrandLogo size="lg" />
+          <p className="mt-2 text-sm text-[var(--text-muted)] text-center">
+            The university OOP laboratory platform for Digital SAT practice.
+          </p>
         </div>
-    );
+
+        {/* Main Auth Card */}
+        <Card className="shadow-[var(--ui-shadow-md)]">
+          <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-4 mb-6">
+            <div>
+              <h2 className="text-xl font-bold text-[var(--text-primary)] font-display">
+                {isLogin ? "Sign in to RonanSAT" : "Create your account"}
+              </h2>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                {isLogin
+                  ? "Enter your credentials to continue"
+                  : "Join to practice and track mistakes"}
+              </p>
+            </div>
+            <Badge variant="brand">{isLogin ? "Login" : "Register"}</Badge>
+          </div>
+
+          {error && (
+            <div className="mb-5 p-3 rounded-[var(--ui-radius-sm)] bg-[#fdede8] border border-[#f8c4b4] text-[#ab3d19] text-xs font-semibold">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {!isLogin && (
+              <div>
+                <Input
+                  label="Full Name"
+                  id="name"
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Alex Mercer"
+                />
+              </div>
+            )}
+
+            <div>
+              <Input
+                label="Email Address"
+                id="email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="student@ronansat.com"
+              />
+            </div>
+
+            <div>
+              <Input
+                label="Password"
+                id="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••••••"
+              />
+            </div>
+
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              loading={loading}
+              className="w-full mt-2"
+            >
+              {isLogin ? "Sign In" : "Create Account"}
+            </Button>
+          </form>
+
+          {/* Toggle Login / Register */}
+          <div className="mt-6 pt-4 border-t border-[var(--border-subtle)] text-center">
+            <button
+              type="button"
+              onClick={() => {
+                setIsLogin(!isLogin);
+                setError("");
+              }}
+              className="text-xs font-semibold text-[var(--accent-brand-strong)] hover:underline cursor-pointer"
+            >
+              {isLogin
+                ? "Don't have an account? Create one now"
+                : "Already have an account? Sign in here"}
+            </button>
+          </div>
+        </Card>
+
+        {/* Demo Accounts Quick-Fill Helper (SPEC requirement 0 & 1) */}
+        <div className="mt-4 p-4 rounded-[var(--ui-radius)] border border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-[var(--ui-shadow-xs)]">
+          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2.5 text-center">
+            Quick-Fill Demo Credentials
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => handleFillDemo("student@ronansat.com", "StudentPassword123!")}
+              className="p-2.5 rounded-[var(--ui-radius-sm)] border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:border-[var(--accent-brand)] hover:bg-[#faf1de]/50 text-left transition-colors cursor-pointer"
+            >
+              <div className="text-xs font-bold text-[var(--text-primary)]">Demo Student</div>
+              <div className="text-[11px] text-[var(--text-muted)] font-mono">student@ronansat.com</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleFillDemo("admin@ronansat.com", "AdminPassword123!")}
+              className="p-2.5 rounded-[var(--ui-radius-sm)] border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:border-[var(--accent-brand)] hover:bg-[#faf1de]/50 text-left transition-colors cursor-pointer"
+            >
+              <div className="text-xs font-bold text-[var(--text-primary)]">Demo Admin</div>
+              <div className="text-[11px] text-[var(--text-muted)] font-mono">admin@ronansat.com</div>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }

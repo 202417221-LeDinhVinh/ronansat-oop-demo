@@ -1,11 +1,9 @@
-// Hàm routing giao việc cho Controller xử lý question tùy vào là GET hay POST
-
-import { questionController } from "@/lib/controllers/questionController";
+import { container } from "@/lib/container";
 
 export async function GET(req: Request) {
-    return questionController.getQuestions(req);
+    return container.getQuestionsController.handle(req);
 }
 
 export async function POST(req: Request) {
-    return questionController.createQuestion(req);
+    return container.adminQuestionsController.handle(req);
 }

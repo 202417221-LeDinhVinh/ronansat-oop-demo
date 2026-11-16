@@ -1,8 +1,8 @@
-// Cho phép  nhận ảnh từ cloudinary
-
+// Allow images from Cloudinary
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  devIndicators: false,
   images: {
     remotePatterns: [
       {

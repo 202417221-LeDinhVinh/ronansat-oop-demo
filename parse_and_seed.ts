@@ -1,8 +1,8 @@
 import fs from "fs";
 import mongoose from "mongoose";
 import * as dotenv from "dotenv";
-import Test from "./lib/models/Test";
-import Question, { IQuestion } from "./lib/models/Question";
+import { TestModel as Test } from "./lib/infrastructure/persistence/schemas/TestSchema";
+import { QuestionModel as Question, IQuestionDoc as IQuestion } from "./lib/infrastructure/persistence/schemas/QuestionSchema";
 
 // Load environment variables manually since this is a standalone script
 dotenv.config({ path: ".env.local" });

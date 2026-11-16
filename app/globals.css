@@ -1,20 +1,297 @@
 @import "tailwindcss";
+@import "@fontsource/bricolage-grotesque/index.css";
+@import "@fontsource/bricolage-grotesque/600.css";
+@import "@fontsource/bricolage-grotesque/700.css";
+@import "@fontsource/dm-sans/index.css";
+@import "@fontsource/dm-sans/500.css";
+@import "@fontsource/dm-sans/600.css";
+@import "@fontsource/dm-sans/700.css";
+@import "@fontsource/geist-mono/index.css";
+@import "@fontsource/geist-mono/500.css";
+
+/* ---------------------------------------------------------------------------
+   RonanSAT "The Warm Studio" Design System Tokens (SPEC section 4)
+--------------------------------------------------------------------------- */
+
+:root {
+  /* Fonts */
+  --font-workbook-display: "Bricolage Grotesque", -apple-system, sans-serif;
+  --font-workbook-body: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-workbook-mono: "Geist Mono", monospace;
+
+  /* Canvas & Surfaces */
+  --bg-canvas: #faf9f7;
+  --bg-surface: #ffffff;
+  --bg-raised: #ffffff;
+  --bg-inset: #faf9f7;
+  --card-label: #efe8e3;
+
+  /* Typography / Inks */
+  --text-primary: #1c1917;
+  --text-muted: #78716c;
+  --text-on-brand: #1c1917;
+
+  /* Hairlines / Borders */
+  --border-subtle: #e7e3dd;
+  --border-strong: #d8d2c8;
+
+  /* Brand Pastel Gold */
+  --accent-brand: #e0b354;
+  --accent-brand-strong: #c99b3f;
+  --accent-brand-tint: #faf1de;
+
+  /* Semantic State Accents */
+  --state-info: #2f6feb;
+  --state-danger: #e0592f;
+  --state-success: #1f9d6b;
+  --accent-pink: #ec6a9c;
+
+  /* UI Shape & Radii */
+  --ui-radius: 0.625rem;       /* 10px */
+  --ui-radius-sm: 0.4375rem;    /* 7px */
+  --ui-radius-lg: 0.875rem;     /* 14px */
+  --ui-border: 1px;
+  --ui-scrollbar-size: 8px;
+  --app-bar-h: 3.5rem;
+
+  /* Elevation Shadows (Soft & Layered, no hard offsets) */
+  --ui-shadow-xs: 0 1px 2px rgba(28, 25, 23, 0.05);
+  --ui-shadow: 0 1px 3px rgba(28, 25, 23, 0.06), 0 1px 2px rgba(28, 25, 23, 0.04);
+  --ui-shadow-md: 0 4px 6px -1px rgba(28, 25, 23, 0.07), 0 2px 4px -2px rgba(28, 25, 23, 0.05);
+  --ui-shadow-lg: 0 10px 15px -3px rgba(28, 25, 23, 0.08), 0 4px 6px -4px rgba(28, 25, 23, 0.04);
+}
+
+@theme inline {
+  --font-sans: var(--font-workbook-body);
+  --font-display: var(--font-workbook-display);
+  --font-mono: var(--font-workbook-mono);
+
+  --color-paper-bg: var(--bg-canvas);
+  --color-surface-white: var(--bg-surface);
+  --color-surface-raised: var(--bg-raised);
+  --color-surface-inset: var(--bg-inset);
+  --color-card-label: var(--card-label);
+
+  --color-ink-fg: var(--text-primary);
+  --color-ink-muted: var(--text-muted);
+  --color-on-brand: var(--text-on-brand);
+
+  --color-border: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+
+  --color-brand: var(--accent-brand);
+  --color-brand-strong: var(--accent-brand-strong);
+  --color-brand-tint: var(--accent-brand-tint);
+
+  --color-info: var(--state-info);
+  --color-danger: var(--state-danger);
+  --color-success: var(--state-success);
+}
+
+/* ---------------------------------------------------------------------------
+   Base Styles
+--------------------------------------------------------------------------- */
+
+html, body {
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-workbook-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---------------------------------------------------------------------------
+   Shared Component Utility Classes
+--------------------------------------------------------------------------- */
+
+.workbook-panel {
+  border: var(--ui-border) solid var(--border-subtle);
+  border-radius: var(--ui-radius);
+  background: var(--bg-surface);
+  box-shadow: var(--ui-shadow);
+}
+
+.workbook-panel-muted {
+  border: var(--ui-border) solid var(--border-subtle);
+  border-radius: var(--ui-radius);
+  background: var(--bg-canvas);
+  box-shadow: none;
+}
+
+.workbook-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: var(--ui-border) solid transparent;
+  border-radius: var(--ui-radius-sm);
+  background: var(--accent-brand);
+  padding: 0.45rem 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--text-on-brand);
+  box-shadow: var(--ui-shadow-xs);
+  cursor: pointer;
+  transition: box-shadow 150ms ease, background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.workbook-button:hover:not(:disabled) {
+  background: var(--accent-brand-strong);
+  box-shadow: var(--ui-shadow-md);
+}
+
+.workbook-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.workbook-button-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: var(--ui-border) solid var(--border-subtle);
+  border-radius: var(--ui-radius-sm);
+  background: var(--bg-surface);
+  padding: 0.45rem 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--text-primary);
+  box-shadow: var(--ui-shadow-xs);
+  cursor: pointer;
+  transition: box-shadow 150ms ease, background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.workbook-button-secondary:hover:not(:disabled) {
+  background: var(--bg-canvas);
+  border-color: var(--border-strong);
+  box-shadow: var(--ui-shadow-md);
+}
+
+.workbook-button-secondary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.workbook-button-ink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: var(--ui-border) solid transparent;
+  border-radius: var(--ui-radius-sm);
+  background: var(--text-primary);
+  padding: 0.45rem 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: #ffffff;
+  box-shadow: var(--ui-shadow-xs);
+  cursor: pointer;
+  transition: box-shadow 150ms ease, background-color 150ms ease;
+}
+
+.workbook-button-ink:hover:not(:disabled) {
+  background: #332d29;
+  box-shadow: var(--ui-shadow-md);
+}
+
+.workbook-button-ink:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.workbook-input {
+  width: 100%;
+  border: var(--ui-border) solid var(--border-strong);
+  border-radius: var(--ui-radius);
+  background: var(--bg-surface);
+  padding: 0.55rem 0.85rem;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  outline: none;
+  transition: box-shadow 150ms ease, border-color 150ms ease;
+}
+
+.workbook-input:focus {
+  border-color: var(--accent-brand);
+  box-shadow: 0 0 0 3px rgba(224, 179, 84, 0.2);
+}
+
+.workbook-input::placeholder {
+  color: var(--text-muted);
+}
+
+select.workbook-input {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2378716c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+  padding-right: 2.4rem;
+}
+
+.workbook-press {
+  transition: box-shadow 150ms ease, background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: var(--ui-scrollbar-size);
+  height: var(--ui-scrollbar-size);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d8d2c8;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a29e;
+}
+
+/* Rich Text & KaTeX formatting */
+.rich-text {
+  line-height: 1.65;
+  color: var(--text-primary);
+}
+
+.rich-text p {
+  margin-bottom: 0.75rem;
+}
+
+.rich-text p:last-child {
+  margin-bottom: 0;
+}
 
 .rich-text table {
   border-collapse: collapse;
   margin: 1rem 0;
-  width: auto;
-  border: 1px solid #cbd5e1;
+  width: 100%;
+  border: 1px solid var(--border-subtle);
 }
 
 .rich-text th,
 .rich-text td {
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border-subtle);
   padding: 0.5rem 0.75rem;
   text-align: left;
 }
 
 .rich-text th {
-  background-color: #f1f5f9;
+  background-color: var(--bg-canvas);
   font-weight: 600;
+  color: var(--text-primary);
+}
+
+.rich-text .katex-display {
+  margin: 0.75rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
 }

@@ -1,174 +1,291 @@
 "use client";
 
-import { useState } from "react";
-import { Flag, X } from "lucide-react";
+import React, { useState } from "react";
+import { Flag, X, HelpCircle, Check, FileText, HelpCircle as QuestionIcon } from "lucide-react";
 import RichText from "@/components/RichText";
+import { Badge } from "@/components/ui/Badge";
+import { Input } from "@/components/ui/Input";
 
-interface QuestionViewerProps {    // Khung câu hỏi, khung này k được tự lưu kết quả bài thi => Phải dùng 2 hàm onAnswerSelect và onToggleFlag để báo lên hệ thống 
-    question: any;            // nội dung câu hỏi
-    userAnswer: string;       // đáp án user đang chọn (nếu có)
-    onAnswerSelect: (questionId: string, choice: string) => void;     // Hàm xử lý việc chọn đáp án, cần lưu câu nào và chọn choice gì
-                                                        // => void để báo hệ thống là hàm này chỉ có nhiệm vụ gửi các thông tin này, k trả lại gì cả
-    isFlagged: boolean;      // cho biết câu này có bị flag k
-    onToggleFlag: (questionId: string) => void;                       // Hàm xử lý bật flag cho câu nào, chỉ cần lưu id câu hỏi
-    index: number;           // số thứ tự của câu hỏi
+export interface QuestionViewerProps {
+  question: any;
+  userAnswer?: string;
+  onAnswerSelect: (questionId: string, answer: string) => void;
+  isFlagged: boolean;
+  onToggleFlag: (questionId: string) => void;
+  index: number;
 }
 
-
-/**
- * Ở file khác nếu muốn dùng thẻ QuestionViewer thì sẽ truyền vào từng giá trị dưới và truyền vào hàm ở chỗ onAnswerSelect và onToggleFlag
- */
-
-
 export default function QuestionViewer({
-    question,
-    userAnswer,
-    onAnswerSelect,                              
-    isFlagged,
-    onToggleFlag,
-    index
+  question,
+  userAnswer = "",
+  onAnswerSelect,
+  isFlagged,
+  onToggleFlag,
+  index,
 }: QuestionViewerProps) {
-    // Danh sách 4 câu hỏi
-    const optionLabels = ["A", "B", "C", "D"];
+  const optionLabels = ["A", "B", "C", "D"];
+  const [crossedOut, setCrossedOut] = useState<string[]>([]);
+  const [mobileTab, setMobileTab] = useState<"passage" | "question">("question");
 
-    // danh sách ghi nhớ các đáp án đã bị loại trừ, các phần tử là string và crossedOut là 1 mảng
-    const [crossedOut, setCrossedOut] = useState<string[]>([]);
+  const isSpr =
+    question.questionType === "spr" ||
+    !question.choices ||
+    question.choices.length === 0;
 
+  const toggleCrossOut = (e: React.MouseEvent, choice: string) => {
+    e.stopPropagation();
+    if (crossedOut.includes(choice)) {
+      setCrossedOut(crossedOut.filter((c) => c !== choice));
+    } else {
+      setCrossedOut([...crossedOut, choice]);
+    }
+  };
 
-    // Hàm chạy khi ấn vào dấu X cạnh đáp án 
-    const toggleCrossOut = (e: React.MouseEvent, choice: string) => {  
-        // propagation: sự truyền bá
-        e.stopPropagation();  // X thường đè lên khung của option. Khi ấn X, chuột sẽ xuyên qua X và chọn đáp án đó thay vì loại nó -> Dòng này báo học sinh chỉ đang tương tác với dấu X, đừng truyền xuống dưới mà chọn đáp án này
-        if (crossedOut.includes(choice)) {        // Nếu ấn X và danh sách các đáp bị crossed đã có choice vừa ấn => Xóa option đó khỏi danh sách
-            setCrossedOut(crossedOut.filter(c => c !== choice));     // filter dùng cho mảng và đi qua từng món đồ, nếu thỏa mãn điều kiện thì Add và danh sách mới, nếu rớt thì bỏ
-                                           // Hãy duyệt qua từng chữ c trong sổ, nếu c khác choice mà mình vừa cross thì giữ
-        } else {
-            setCrossedOut([...crossedOut, choice]);   // Nếu ấn X mà chưa có option đó trong danh sách => Tạo 1 bản copy chứa các cái cũ rồi thêm choice đó vào bản copy rồi update vào bản gốc
-        }
-    };
+  const hasPassage = !!question.passage && question.passage.trim().length > 0;
 
-    return (   // Chia màn hình làm 2 nửa
-        <div className="flex-1 flex bg-[#f7f8f9] h-[calc(100vh-8rem)] mt-16 mb-16 overflow-hidden">
-
-            {/* Left Panel: Passage Text (if exists) */}
-            <div className={`
-        ${question.passage ? "w-1/2 border-r border-slate-300" : "hidden"} 
-        h-full overflow-y-auto p-8 lg:p-12
-      `}>
-
-                    {question.imageUrl && (
-                        <div className="flex justify-center w-full bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6">
-                            <img 
-                                src={question.imageUrl} 
-                                alt="Question Reference" 
-                                className="max-w-full max-h-[350px] object-contain rounded shadow-sm"
-                            />
-                        </div>
-                    )}
-
-                {question.passage && (
-                    <div className="bg-white p-8 border border-slate-200 text-lg leading-relaxed font-serif text-slate-800 rounded-lg selection:bg-yellow-200 selection:text-black">
-                        <RichText content={question.passage} />
-                    </div>
-                )}
-            </div>
-
-            {/* Right Panel: Question & Answers */}
-            <div className={`
-        ${question.passage ? "w-1/2" : "w-full max-w-4xl mx-auto"} 
-        h-full overflow-y-auto p-8 lg:p-12 bg-white
-      `}>
-                <div className="flex justify-between items-start mb-6 border-b border-slate-100 pb-4">
-                    <div className="flex items-center gap-3">
-                        <div className="bg-slate-900 text-white w-8 h-8 flex items-center justify-center font-bold text-lg rounded-sm">
-                            {index + 1}
-                        </div>
-                        {isFlagged && <div className="text-sm font-semibold text-amber-600 flex items-center gap-1"><Flag className="w-4 h-4 fill-amber-500" /> Marked for Review</div>}
-                    </div>
-
-                    <button
-                        onClick={() => onToggleFlag(question._id)}    // Khi ấn vào nút Flag thì truyền question id vào hàm onToggleFlag để lưu lại
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md font-semibold text-sm border ${isFlagged
-                            ? "bg-amber-50 border-amber-200 text-amber-700"
-                            : "bg-white border-slate-300 text-slate-600 hover:bg-slate-50"
-                            }`}
-                    >
-                        <Flag className={`w-4 h-4 ${isFlagged ? "fill-amber-500" : ""}`} />
-                        Mark for Review
-                    </button>
-                </div>
-
-                {!question.passage && question.imageUrl && (
-                    <div className="flex justify-center w-full bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6">
-                        <img 
-                            src={question.imageUrl} 
-                            alt="Question Reference" 
-                            className="max-w-full max-h-[350px] object-contain rounded shadow-sm"
-                        />
-                    </div>
-                )}
-
-                <RichText
-                    content={question.questionText}
-                    className="prose max-w-none text-xl text-slate-900 mb-8 font-medium leading-relaxed"
-                />
-
-                <div className="space-y-4">              
-                    {question.choices.map((choice: string, i: number) => {    // Loop qua từng choice trong danh sách choices, mỗi lượt lấy ra choice (nội dung của đáp án) và i ( index 0 1 2 3 )
-                        const isSelected = userAnswer === choice;             // so sánh userAnswer (đáp án học sinh đang click) với choice (đáp án trong danh sách), nếu trùng thì isSelected sẽ = true, k thì = false
-                        const isCrossed = crossedOut.includes(choice);        // Kiểm tra danh sách crossedOut có bao gồm lựa chọn đó không, có thì true, k thì false
-                        const label = optionLabels[i] || "";                  // gán A B C D cho choice này dựa vào index từ mảng optionLabels , 0 = A, 1 = B, 2 = C, 3 = D
-                                                                              // Nếu có 5 đáp án -> đi vào optionLabels[4] sẽ gây sập => Trả về rỗng tránh sập
-
-                        // Đoạn này đi qua từng đáp án để xem nó có được select chưa, bị crossed chưa để hiện effect phù hợp
-                        return (
-                            <div
-                                key={i}
-                                className={`relative flex items-center group cursor-pointer`}        
-                                onClick={() => !isCrossed && onAnswerSelect(question._id, choice)}   // Nếu !isCrossed chưa crossed thì mới được khoanh
-                                                             // Nếu chưa crossed và click vào đáp án thì truyền id mã câu và nội dung đáp án (choice) về để máy chủ chấm điểm
-                            >
-                                <button
-                                    onClick={(e) => toggleCrossOut(e, choice)}       // Sự kiện Cross out khi ấn vào X, truyền vào sự kiện e để chặn xuyên thấu và nội dung đáp án 
-                                    className="absolute -left-12 p-1.5 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity rounded"
-                                    title="Cross out choice"
-                                >
-                                    <X className="w-5 h-5" />
-                                </button>
-
-                                <div className={`
-                   flex-1 flex items-start gap-4 p-4 border-2 rounded-lg transition-all
-                   ${isSelected ? "border-blue-600 bg-blue-50" : "border-slate-300 bg-white hover:border-slate-500"}
-                   ${isCrossed ? "opacity-40 grayscale pointer-events-none" : ""}
-                 `}>
-                                    {/* Radio Button simulating Bluebook bubble */}
-                                    <div className="pt-1">
-                                        <div className={`
-                        w-8 h-8 rounded-full border-2 flex items-center justify-center font-bold
-                        ${isSelected ? "border-blue-600 font-bold" : "border-slate-400 text-slate-500"}
-                      `}>
-                                            {isSelected ? (
-                                                <div className="w-full h-full bg-blue-600 text-white flex items-center justify-center rounded-full">
-                                                    {label}
-                                                </div>
-                                            ) : (
-                                                label
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className="flex-1 pt-1.5 text-lg text-slate-800 font-medium">
-                                        <span className={isCrossed ? "line-through text-slate-400" : ""}>
-                                            <RichText content={choice} as="span" />
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-
+  return (
+    <div className="flex flex-col h-[calc(100vh-8rem)] mt-16 mb-16 overflow-hidden bg-[var(--bg-canvas)]">
+      {/* Mobile Tab Switcher if question has passage */}
+      {hasPassage && (
+        <div className="lg:hidden flex items-center border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-2 shrink-0">
+          <div className="flex items-center gap-1 w-full bg-[var(--bg-canvas)] p-1 rounded-[var(--ui-radius-sm)] border border-[var(--border-subtle)]">
+            <button
+              type="button"
+              onClick={() => setMobileTab("passage")}
+              className={`flex-1 py-1.5 text-xs font-semibold rounded-[var(--ui-radius-sm)] transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
+                mobileTab === "passage"
+                  ? "bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-xs"
+                  : "text-[var(--text-muted)]"
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>Passage</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileTab("question")}
+              className={`flex-1 py-1.5 text-xs font-semibold rounded-[var(--ui-radius-sm)] transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
+                mobileTab === "question"
+                  ? "bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-xs"
+                  : "text-[var(--text-muted)]"
+              }`}
+            >
+              <QuestionIcon className="w-3.5 h-3.5" />
+              <span>Question {index + 1}</span>
+            </button>
+          </div>
         </div>
-    );
+      )}
+
+      {/* Main Two-Pane Split Layout */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Pane: Passage (for Reading & Writing) */}
+        {hasPassage && (
+          <div
+            className={`w-full lg:w-1/2 border-r border-[var(--border-subtle)] h-full overflow-y-auto p-6 sm:p-8 lg:p-10 bg-[var(--bg-surface)] ${
+              mobileTab === "passage" ? "block" : "hidden lg:block"
+            }`}
+          >
+            <div className="max-w-2xl mx-auto space-y-6">
+              <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
+                <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                  Reading &amp; Writing Passage
+                </span>
+                {question.domain && (
+                  <Badge variant="muted" size="sm">
+                    {question.domain}
+                  </Badge>
+                )}
+              </div>
+
+              {/* Optional Figure / Image */}
+              {question.imageUrl && (
+                <div className="flex justify-center p-4 rounded-[var(--ui-radius)] border border-[var(--border-subtle)] bg-[var(--bg-canvas)]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={question.imageUrl}
+                    alt="Question Graphic"
+                    className="max-h-[300px] object-contain rounded"
+                  />
+                </div>
+              )}
+
+              {/* Passage Body */}
+              <div className="text-base sm:text-lg leading-relaxed text-[var(--text-primary)]">
+                <RichText content={question.passage} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Right Pane: Question Prompt & Choices / SPR */}
+        <div
+          className={`flex-1 h-full overflow-y-auto p-6 sm:p-8 lg:p-10 bg-[var(--bg-surface)] ${
+            hasPassage ? (mobileTab === "question" ? "block" : "hidden lg:block") : "w-full"
+          }`}
+        >
+          <div className="max-w-2xl mx-auto space-y-6">
+            {/* Question Top Meta Bar */}
+            <div className="flex items-center justify-between pb-4 border-b border-[var(--border-subtle)]">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-[var(--ui-radius-sm)] bg-[var(--text-primary)] text-white font-bold flex items-center justify-center text-sm shadow-xs font-mono">
+                  {index + 1}
+                </div>
+                <div>
+                  <span className="text-xs font-semibold text-[var(--text-muted)]">
+                    Question {index + 1}
+                  </span>
+                  {question.skill && (
+                    <span className="hidden sm:inline-block ml-2 text-xs text-[var(--text-muted)]">
+                      · {question.skill}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Mark for Review Flag Button */}
+              <button
+                type="button"
+                onClick={() => onToggleFlag(question._id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--ui-radius-sm)] text-xs font-semibold border transition-all cursor-pointer ${
+                  isFlagged
+                    ? "bg-[var(--accent-brand-tint)] border-[var(--accent-brand)] text-[#8c6b1f]"
+                    : "bg-[var(--bg-surface)] border-[var(--border-subtle)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-strong)]"
+                }`}
+              >
+                <Flag
+                  className={`w-3.5 h-3.5 ${
+                    isFlagged ? "fill-[var(--accent-brand)] text-[var(--accent-brand-strong)]" : ""
+                  }`}
+                />
+                <span>{isFlagged ? "Marked for Review" : "Mark for Review"}</span>
+              </button>
+            </div>
+
+            {/* If no passage on left but has an image (e.g. Math linear graphs) */}
+            {!hasPassage && question.imageUrl && (
+              <div className="flex justify-center p-4 rounded-[var(--ui-radius)] border border-[var(--border-subtle)] bg-[var(--bg-canvas)]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={question.imageUrl}
+                  alt="Question Graph or Diagram"
+                  className="max-h-[300px] object-contain rounded"
+                />
+              </div>
+            )}
+
+            {/* Question Text / Prompt */}
+            <div className="text-base sm:text-lg font-medium text-[var(--text-primary)] leading-relaxed">
+              <RichText content={question.questionText} />
+            </div>
+
+            {/* =============================================================
+                CHOICES: MULTIPLE CHOICE OR STUDENT PRODUCED RESPONSE (SPR)
+            ============================================================== */}
+            {isSpr ? (
+              /* Student Produced Response (SPR) Free-form Input */
+              <div className="p-6 rounded-[var(--ui-radius)] border border-[var(--border-strong)] bg-[var(--bg-canvas)] space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="brand" size="sm">
+                      Student-Produced Response
+                    </Badge>
+                    <span className="text-xs font-semibold text-[var(--text-muted)]">
+                      Numeric or Fraction
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor={`spr-input-${question._id}`}
+                    className="block text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2"
+                  >
+                    Your Answer
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      id={`spr-input-${question._id}`}
+                      type="text"
+                      maxLength={7}
+                      value={userAnswer || ""}
+                      onChange={(e) => onAnswerSelect(question._id, e.target.value.trim())}
+                      placeholder="e.g. 28, 0.5, or 1/2"
+                      className="workbook-input max-w-xs text-lg font-mono font-bold tracking-wider"
+                    />
+                    {userAnswer && (
+                      <span className="text-xs font-mono font-semibold px-2.5 py-1.5 rounded-[var(--ui-radius-sm)] bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-primary)]">
+                        Entered: <strong>{userAnswer}</strong>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="text-xs text-[var(--text-muted)] space-y-1 pt-2 border-t border-[var(--border-subtle)]">
+                  <p>
+                    • Acceptable formats: integers (e.g. <code className="font-mono font-bold">28</code>),
+                    decimals (e.g. <code className="font-mono font-bold">0.5</code> or <code className="font-mono font-bold">.5</code>),
+                    fractions (e.g. <code className="font-mono font-bold">1/2</code>).
+                  </p>
+                  <p>• Negative values (e.g. <code className="font-mono font-bold">-3/4</code>) are supported if required.</p>
+                </div>
+              </div>
+            ) : (
+              /* Multiple Choice 4 Options */
+              <div className="space-y-3 pt-2">
+                {question.choices.map((choice: string, i: number) => {
+                  const isSelected = userAnswer === choice;
+                  const isCrossed = crossedOut.includes(choice);
+                  const label = optionLabels[i] || "";
+
+                  return (
+                    <div
+                      key={i}
+                      className="relative flex items-center group cursor-pointer"
+                      onClick={() => !isCrossed && onAnswerSelect(question._id, choice)}
+                    >
+                      {/* Cross out button on hover */}
+                      <button
+                        type="button"
+                        onClick={(e) => toggleCrossOut(e, choice)}
+                        className="hidden sm:flex absolute -left-9 p-1 rounded text-[var(--text-muted)] hover:text-[var(--state-danger)] hover:bg-[#fdede8] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        title={isCrossed ? "Restore choice" : "Cross out choice"}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+
+                      {/* Choice Card */}
+                      <div
+                        className={`flex-1 flex items-start gap-4 p-4 rounded-[var(--ui-radius)] border transition-all duration-150 ${
+                          isSelected
+                            ? "bg-[var(--accent-brand-tint)]/60 border-[var(--accent-brand-strong)] shadow-[var(--ui-shadow-xs)]"
+                            : "bg-[var(--bg-surface)] border-[var(--border-strong)] hover:border-[var(--accent-brand)]"
+                        } ${isCrossed ? "opacity-35 line-through pointer-events-none" : ""}`}
+                      >
+                        {/* Radio Letter Bubble */}
+                        <div
+                          className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 transition-colors ${
+                            isSelected
+                              ? "bg-[var(--accent-brand)] text-[var(--text-on-brand)] shadow-xs"
+                              : "border border-[var(--border-strong)] text-[var(--text-muted)] bg-[var(--bg-canvas)]"
+                          }`}
+                        >
+                          {label}
+                        </div>
+
+                        {/* Choice Text with KaTeX */}
+                        <div className="flex-1 pt-0.5 text-sm sm:text-base text-[var(--text-primary)] font-medium leading-relaxed">
+                          <RichText content={choice} as="span" />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }

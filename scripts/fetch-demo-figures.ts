@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import axios from "axios";
-import { getLocalFigureFilename, getLocalFigurePath } from "../lib/seed/prodSampleImporter";
+import { getLocalFigureFilename, getLocalFigurePath } from "../lib/infrastructure/seed/ProdSampleImporter";
 
 export { getLocalFigureFilename, getLocalFigurePath };
 

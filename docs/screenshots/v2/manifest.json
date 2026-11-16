@@ -1,0 +1,92 @@
+[
+  {
+    "filename": "01-auth.png",
+    "description": "Warm Studio authentication card with quick-fill demo buttons and login/register tabs.",
+    "verdict": "Clean Warm Studio card, correct typography, subtle shadows, demo buttons visible."
+  },
+  {
+    "filename": "02-home.png",
+    "description": "Authenticated student dashboard displaying 1360 highest score, 1360 latest score, 4 stat cards, smooth score trend sparkline, and practice CTA.",
+    "verdict": "Warm studio off-white canvas, crisp cards, hairline borders, golden accent button."
+  },
+  {
+    "filename": "03-practice.png",
+    "description": "Practice catalog with SAT test cards, badges, 134 mins total time limit, and Full-Length / Sectional modal trigger buttons.",
+    "verdict": "Clean grid layout, responsive cards with section tags and clear action buttons."
+  },
+  {
+    "filename": "04-test-math-latex.png",
+    "description": "Math test room displaying rendered KaTeX math expression h(x) = 5(9x - 10), formula choices, Desmos calculator tool button, and timer.",
+    "verdict": "Crisp KaTeX formula rendering, no unformatted LaTeX, clear choice bubbles."
+  },
+  {
+    "filename": "05-test-spr.png",
+    "description": "Student-Produced Response (SPR) question viewer with numeric/fraction input box and rules guide.",
+    "verdict": "Clear SPR badge, structured input box with numeric keypad hint and fraction guide."
+  },
+  {
+    "filename": "06-test-rw-passage.png",
+    "description": "Split-pane layout for SAT Reading & Writing with literature passage on left and vocabulary question on right.",
+    "verdict": "Distinct workbook panels with subtle divider, comfortable line-height for reading."
+  },
+  {
+    "filename": "07-results-list.png",
+    "description": "Filterable list of past test attempts showing total score, section breakdown, date, and detail review button.",
+    "verdict": "Well-structured score list with warm gold accents for 1500+ scores."
+  },
+  {
+    "filename": "08-result-detail.png",
+    "description": "Detailed exam score report with raw correct/incorrect metrics, section scores, and interactive question palette.",
+    "verdict": "High-contrast score display, clear green/red status palette buttons."
+  },
+  {
+    "filename": "09-result-review-dialog.png",
+    "description": "Question review modal displaying question prompt, student answer comparison, and complete step-by-step KaTeX explanation.",
+    "verdict": "Modal centered, KaTeX math in explanation renders flawlessly, clean close button."
+  },
+  {
+    "filename": "10-error-log.png",
+    "description": "Mistake notebook with section filters, reason tags (Misread question, Concept gap), notes, and inline retry trigger.",
+    "verdict": "Clear categorization, editable notes, badge indicators for open/resolved status."
+  },
+  {
+    "filename": "11-statistics.png",
+    "description": "SAT Analytics dashboard with Recharts score trajectory, section accuracy bar charts, and 12-week activity heatmap.",
+    "verdict": "Interactive Recharts SVG charts render smoothly with warm studio gold theme colors."
+  },
+  {
+    "filename": "12-vocab-decks.png",
+    "description": "Vocabulary deck library showing system decks, card counts, and Leitner box distribution bars.",
+    "verdict": "Structured cards, clear box counts, warm gold study buttons."
+  },
+  {
+    "filename": "13-vocab-study-card.png",
+    "description": "Interactive flashcard study session showing flipped card with definition and Leitner 5-box rating buttons (Again, Hard, Good, Easy).",
+    "verdict": "Centered flashcard with smooth flip effect, color-coded spaced repetition rating actions."
+  },
+  {
+    "filename": "14-admin-overview.png",
+    "description": "Admin portal overview displaying platform KPIs: Total Users, Total Attempts, Available Tests, and Avg Score.",
+    "verdict": "Clean KPI cards, quick actions, responsive navigation tabs."
+  },
+  {
+    "filename": "15-admin-questions.png",
+    "description": "Admin question bank table showing question types (MCQ / SPR), domain tags, points, and CRUD action buttons.",
+    "verdict": "Crisp table layout with clear badges for SPR and MCQ, intuitive modal trigger."
+  },
+  {
+    "filename": "15b-admin-question-editor.png",
+    "description": "Admin question modal with SPR vs MCQ selector, passage editor, prompt, accepted answers, explanation, and domain/skill tags.",
+    "verdict": "Comprehensive question editor form with live type switching and formatted fields."
+  },
+  {
+    "filename": "16-mobile-home.png",
+    "description": "Mobile 375px responsive student dashboard with stacked stat cards, compact sparkline, and bottom navigation bar.",
+    "verdict": "Zero horizontal overflow, clean touch-friendly cards, sticky mobile bottom tab navigation."
+  },
+  {
+    "filename": "17-mobile-test-room.png",
+    "description": "Mobile 375px exam interface with sticky top progress bar, responsive question view, and touch-sized choices.",
+    "verdict": "Properly wrapped text, accessible touch targets, question navigator modal accessible on small screens."
+  }
+]
