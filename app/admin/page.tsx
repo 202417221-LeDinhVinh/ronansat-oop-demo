@@ -521,7 +521,7 @@ export default function AdminPage() {
             <StatCard
               label="Tests Catalog"
               value={metrics.testsCount}
-              sublabel="Official SAT Tests"
+              sublabel="Practice Tests"
               icon={<BookOpen className="w-4 h-4" />}
             />
             <StatCard
@@ -547,7 +547,7 @@ export default function AdminPage() {
             </div>
             <p className="text-xs text-ink-muted leading-relaxed max-w-3xl">
               RonanSAT OOP Edition is running with in-memory MongoDB persistence and zero-config demo accounts.
-              All question imports from College Board sample tests are verified with KaTeX mathematical typography,
+              Question imports are formatted with KaTeX mathematical typography,
               SPR answer equivalences, and Leitner spaced-repetition vocabulary tracking.
             </p>
           </div>
@@ -710,10 +710,10 @@ export default function AdminPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="sticky top-0 bg-surface-white z-10 w-12 font-mono">#</TableHead>
-                      <TableHead className="sticky top-0 bg-surface-white z-10 w-44">Section / Mod</TableHead>
-                      <TableHead className="sticky top-0 bg-surface-white z-10">Question Snippet</TableHead>
-                      <TableHead className="sticky top-0 bg-surface-white z-10 w-24">Type</TableHead>
-                      <TableHead className="sticky top-0 bg-surface-white z-10 w-44">Skill</TableHead>
+                      <TableHead className="sticky top-0 bg-surface-white z-10 w-36">Section / Mod</TableHead>
+                      <TableHead className="sticky top-0 bg-surface-white z-10 max-w-[320px]">Question Snippet</TableHead>
+                      <TableHead className="sticky top-0 bg-surface-white z-10 w-20">Type</TableHead>
+                      <TableHead className="sticky top-0 bg-surface-white z-10 w-56 min-w-[200px]">Skill</TableHead>
                       <TableHead className="sticky top-0 bg-surface-white z-10 w-24 text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -728,7 +728,7 @@ export default function AdminPage() {
                           <TableCell className="font-semibold text-ink-fg text-xs">
                             {q.section} (M{q.module || 1})
                           </TableCell>
-                          <TableCell className="max-w-md text-ink-fg">
+                          <TableCell className="max-w-[320px] text-ink-fg">
                             <p className="line-clamp-2 text-xs font-medium leading-relaxed">
                               {q.questionText}
                             </p>
@@ -738,7 +738,7 @@ export default function AdminPage() {
                               {q.questionType === "spr" ? "SPR" : "MCQ"}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-xs text-ink-muted truncate max-w-[160px]">
+                          <TableCell className="text-xs text-ink-muted font-medium leading-snug max-w-[220px] whitespace-normal break-words">
                             {q.skill}
                           </TableCell>
                           <TableCell className="text-right">

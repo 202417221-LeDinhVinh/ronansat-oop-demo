@@ -187,7 +187,7 @@ export function TestFooter({
         {/* Left: Indicator of active test */}
         <div className="flex-1 min-w-0 pr-2 pl-8 sm:pl-0">
           <span className="text-xs font-semibold text-ink-muted truncate block">
-            RonanSAT Official Exam Engine
+            RonanSAT Exam Engine
           </span>
         </div>
 

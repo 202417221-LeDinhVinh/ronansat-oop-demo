@@ -24,7 +24,16 @@ import {
   CartesianGrid,
   Area,
   AreaChart,
+  LabelList,
 } from "recharts";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Badge } from "@/components/ui/Badge";
 import { StatCard } from "@/components/ui/StatCard";
@@ -146,6 +155,17 @@ export default function StatisticsPage() {
     });
 
     return days;
+  }, [data]);
+
+  const allSkills = useMemo(() => {
+    if (!data) return [];
+    const map = new Map<string, SkillPerformance>();
+    [...(data.strongestSkills || []), ...(data.weakestSkills || [])].forEach((s) => {
+      if (!map.has(s.skill)) {
+        map.set(s.skill, s);
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => b.accuracy - a.accuracy);
   }, [data]);
 
   if (loading) {
@@ -314,7 +334,7 @@ export default function StatisticsPage() {
             <div className="h-64 w-full">
               {barData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={barData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <BarChart data={barData} margin={{ top: 24, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid
                       stroke="var(--color-ink-fg)"
                       strokeOpacity={0.07}
@@ -351,7 +371,15 @@ export default function StatisticsPage() {
                       dataKey="accuracy"
                       fill="var(--color-brand)"
                       radius={[4, 4, 0, 0]}
-                    />
+                      maxBarSize={56}
+                    >
+                      <LabelList
+                        dataKey="accuracy"
+                        position="top"
+                        formatter={(val: any) => `${val}%`}
+                        style={{ fontSize: "11px", fontWeight: 700, fill: "var(--color-ink-fg)" }}
+                      />
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -363,6 +391,76 @@ export default function StatisticsPage() {
           </div>
         </section>
       </div>
+
+      {/* DOMAIN & SKILL ACCURACY TABLE WITH MINI BARS */}
+      <section className="workbook-panel overflow-hidden">
+        <div className="border-b border-border-strong bg-paper-bg px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-display text-xl font-black tracking-tight text-ink-fg">
+              Domain &amp; Skill Accuracy
+            </h2>
+            <p className="mt-0.5 text-xs text-ink-muted">
+              Benchmark breakdown across Digital SAT domains and skills with mini progress bars
+            </p>
+          </div>
+          {allSkills.length > 0 && (
+            <Badge variant="brand">{allSkills.length} Skills Measured</Badge>
+          )}
+        </div>
+
+        {allSkills.length > 0 ? (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-52">Domain</TableHead>
+                  <TableHead>Skill</TableHead>
+                  <TableHead className="w-56">Accuracy &amp; Progress</TableHead>
+                  <TableHead className="w-28 text-right">Answered</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {allSkills.map((item, idx) => (
+                  <TableRow key={idx} className="hover:bg-canvas/50">
+                    <TableCell className="font-semibold text-xs text-ink-muted whitespace-nowrap">
+                      {item.domain}
+                    </TableCell>
+                    <TableCell className="font-bold text-xs text-ink-fg">
+                      {item.skill}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1">
+                          <StatBar
+                            value={item.accuracy}
+                            color={
+                              item.accuracy >= 75
+                                ? "var(--color-success)"
+                                : item.accuracy >= 50
+                                ? "var(--color-brand)"
+                                : "var(--color-danger)"
+                            }
+                          />
+                        </div>
+                        <span className="font-mono font-bold text-xs tabular-nums text-ink-fg w-12 text-right">
+                          {item.accuracy}%
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs font-semibold text-ink-muted">
+                      {item.questionsAnswered}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
+          <div className="p-8 text-center text-xs text-ink-muted">
+            Complete practice tests to generate domain and skill accuracy data.
+          </div>
+        )}
+      </section>
 
       {/* Sectional Drills History (200-800 scale) */}
       {data.sectionalTrend && data.sectionalTrend.length > 0 && (
@@ -449,69 +547,6 @@ export default function StatisticsPage() {
           </div>
         </div>
       </section>
-
-      {/* DOMAIN & SKILL TABLE WITH MINI BARS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Strongest Skills */}
-        <section className="workbook-panel overflow-hidden">
-          <div className="border-b border-border-strong bg-paper-bg px-5 py-4 flex items-center justify-between">
-            <h2 className="font-display text-base font-black tracking-tight text-ink-fg flex items-center gap-1.5">
-              <ArrowUpRight className="w-4 h-4 text-success" />
-              <span>Top Mastery Skills</span>
-            </h2>
-            <Badge variant="success" size="sm">High Accuracy</Badge>
-          </div>
-
-          <div className="p-5 space-y-4">
-            {data.strongestSkills && data.strongestSkills.length > 0 ? (
-              data.strongestSkills.map((item, idx) => (
-                <div key={idx} className="space-y-1.5">
-                  <div className="flex items-baseline justify-between gap-3 text-xs">
-                    <span className="font-bold text-ink-fg truncate">{item.skill}</span>
-                    <span className="font-bold tabular-nums text-success shrink-0">
-                      {item.accuracy}% ({item.questionsAnswered} answered)
-                    </span>
-                  </div>
-                  <StatBar value={item.accuracy} color="var(--color-success)" />
-                  <p className="text-[10px] text-ink-muted truncate">{item.domain}</p>
-                </div>
-              ))
-            ) : (
-              <p className="text-xs text-ink-muted text-center py-4">No skill data available yet.</p>
-            )}
-          </div>
-        </section>
-
-        {/* Weakest Skills */}
-        <section className="workbook-panel overflow-hidden">
-          <div className="border-b border-border-strong bg-paper-bg px-5 py-4 flex items-center justify-between">
-            <h2 className="font-display text-base font-black tracking-tight text-ink-fg flex items-center gap-1.5">
-              <ArrowDownRight className="w-4 h-4 text-danger" />
-              <span>Focus Areas for Review</span>
-            </h2>
-            <Badge variant="danger" size="sm">Needs Practice</Badge>
-          </div>
-
-          <div className="p-5 space-y-4">
-            {data.weakestSkills && data.weakestSkills.length > 0 ? (
-              data.weakestSkills.map((item, idx) => (
-                <div key={idx} className="space-y-1.5">
-                  <div className="flex items-baseline justify-between gap-3 text-xs">
-                    <span className="font-bold text-ink-fg truncate">{item.skill}</span>
-                    <span className="font-bold tabular-nums text-danger shrink-0">
-                      {item.accuracy}% ({item.questionsAnswered} answered)
-                    </span>
-                  </div>
-                  <StatBar value={item.accuracy} color="var(--color-danger)" />
-                  <p className="text-[10px] text-ink-muted truncate">{item.domain}</p>
-                </div>
-              ))
-            ) : (
-              <p className="text-xs text-ink-muted text-center py-4">No weak skills identified yet.</p>
-            )}
-          </div>
-        </section>
-      </div>
     </div>
   );
 }

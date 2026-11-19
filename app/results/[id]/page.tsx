@@ -128,7 +128,7 @@ export default function ResultDetailPage({ params }: { params: Promise<{ id: str
       ? result.testId?.title
       : isSectional
       ? `${result.sectionalSubject || "Sectional"} (Module ${result.sectionalModule || 1})`
-      : "Digital SAT Official Practice Test";
+      : "Digital SAT Practice Test";
 
   const totalQuestions = answers.length;
   const correctCount = answers.filter((a) => a.isCorrect).length;
@@ -162,7 +162,7 @@ export default function ResultDetailPage({ params }: { params: Promise<{ id: str
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="space-y-2">
             <span className="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
-              Official SAT Score Report
+              SAT Practice Score Report
             </span>
             <h1 className="text-2xl sm:text-3xl font-black text-ink-fg font-display tracking-tight">
               {title}
@@ -291,7 +291,7 @@ export default function ResultDetailPage({ params }: { params: Promise<{ id: str
               Question Navigator &amp; Review
             </h2>
             <p className="mt-0.5 text-xs text-ink-muted">
-              Select any question number to review your answer, the official solution, and KaTeX explanation.
+              Select any question number to review your answer, the correct solution, and KaTeX explanation.
             </p>
           </div>
 
@@ -489,11 +489,11 @@ export default function ResultDetailPage({ params }: { params: Promise<{ id: str
               </div>
             )}
 
-            {/* Official Solution & Explanation */}
+            {/* Solution & Explanation */}
             {selectedAnswer.questionId?.explanation && (
               <div className="mt-4 p-4 rounded-[var(--ui-radius-sm)] border border-[#ecd49d] bg-brand-tint/50 text-xs">
                 <span className="font-bold text-brand-strong uppercase tracking-wider block mb-1.5 text-[10px]">
-                  Official Solution &amp; Explanation
+                  Solution &amp; Explanation
                 </span>
                 <div className="rich-text leading-relaxed text-ink-fg">
                   <RichText content={selectedAnswer.questionId.explanation} />

@@ -7,7 +7,6 @@ import {
   RotateCcw,
   ChevronDown,
   ChevronUp,
-  Tag,
   Save,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -28,15 +27,6 @@ const MISTAKE_REASONS = [
   "Guessed",
   "Unclassified",
 ];
-
-const REASON_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  Careless: { bg: "bg-[#fbe1d3]", text: "text-[#8c4015]", border: "border-[#f5be9e]" },
-  "Concept gap": { bg: "bg-[#dbe8fb]", text: "text-[#1d4ed8]", border: "border-[#bfdbfe]" },
-  "Misread question": { bg: "bg-[#ece4f8]", text: "text-[#6b21a8]", border: "border-[#ddd6fe]" },
-  "Time pressure": { bg: "bg-[#fbf1cd]", text: "text-[#854d0e]", border: "border-[#fef08a]" },
-  Guessed: { bg: "bg-[#d3eef1]", text: "text-[#0e7490]", border: "border-[#a5f3fc]" },
-  Unclassified: { bg: "bg-paper-bg", text: "text-ink-muted", border: "border-border" },
-};
 
 export function ErrorLogStatusPill({ status }: { status: "open" | "resolved" }) {
   const isResolved = status === "resolved";
@@ -323,7 +313,6 @@ export default function ErrorLogPage() {
             const q = entry.question;
             const isResolved = entry.status === "resolved";
             const retryRes = retryResults[entry._id];
-            const reasonStyle = REASON_COLORS[entry.reason] || REASON_COLORS.Unclassified;
 
             return (
               <div
@@ -354,12 +343,12 @@ export default function ErrorLogPage() {
 
                   <div className="flex items-center gap-2">
                     {/* Reason Selector Dropdown */}
-                    <div className="flex items-center gap-1.5 text-xs">
-                      <Tag className="w-3.5 h-3.5 text-ink-muted" />
+                    <div className="relative inline-flex items-center">
                       <select
                         value={entry.reason}
                         onChange={(e) => handleUpdateReason(entry._id, e.target.value)}
-                        className={`text-xs font-bold rounded-[var(--ui-radius-sm)] border px-2 py-1 outline-none ${reasonStyle.bg} ${reasonStyle.text} ${reasonStyle.border}`}
+                        className="appearance-none bg-surface-white text-ink-fg border border-border hover:border-border-strong rounded-full text-xs font-semibold pl-3 pr-7 py-1 shadow-[var(--ui-shadow-xs)] focus:outline-none focus:ring-1 focus:ring-brand cursor-pointer transition-colors"
+                        aria-label="Change mistake reason"
                       >
                         {MISTAKE_REASONS.map((r) => (
                           <option key={r} value={r}>
@@ -367,6 +356,7 @@ export default function ErrorLogPage() {
                           </option>
                         ))}
                       </select>
+                      <ChevronDown className="w-3.5 h-3.5 text-ink-muted absolute right-2 pointer-events-none" />
                     </div>
 
                     {/* Toggle Status Button */}
@@ -536,7 +526,7 @@ export default function ErrorLogPage() {
                       ) : (
                         <>
                           <ChevronDown className="w-3.5 h-3.5" />
-                          <span>Show Official Solution &amp; Explanation</span>
+                          <span>Show Solution &amp; Explanation</span>
                         </>
                       )}
                     </button>

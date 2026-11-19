@@ -240,7 +240,7 @@ export default function TestEngine({ testId }: { testId: string }) {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-canvas">
-        <Loading message="Preparing testing room and College Board question set..." />
+        <Loading message="Preparing testing room and question set..." />
       </div>
     );
   }
@@ -343,7 +343,7 @@ export default function TestEngine({ testId }: { testId: string }) {
               </div>
               <p className="text-sm font-bold text-brand-strong">Scheduled Break</p>
               <p className="text-xs text-[#a07c24] max-w-sm mx-auto leading-relaxed">
-                On the official Digital SAT, you receive an optional 10-minute break between
+                In the Digital SAT, you receive an optional 10-minute break between
                 Reading &amp; Writing and Math. When you are ready, click below to start Math Module 1.
               </p>
             </div>

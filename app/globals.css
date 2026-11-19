@@ -114,6 +114,7 @@
   --font-mono: var(--font-workbook-mono);
 
   --color-paper-bg: var(--bg-canvas);
+  --color-canvas: var(--bg-canvas);
   --color-surface-white: var(--bg-surface);
   --color-surface: var(--bg-surface);
   --color-surface-raised: var(--bg-raised);

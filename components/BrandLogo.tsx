@@ -38,7 +38,7 @@ export default function BrandLogo({
             Ronan <span className="text-brand-strong">SAT</span>
           </span>
           <span className="text-[9px] font-mono font-semibold uppercase px-1.5 py-0.5 rounded bg-brand-tint text-brand-strong border border-border">
-            OOP v2
+            OOP
           </span>
         </div>
         {subtitle && (

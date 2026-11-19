@@ -148,10 +148,10 @@ export default function PracticeLibraryPage() {
                 <h1 className="font-display text-2xl md:text-3xl font-black tracking-tight text-ink-fg">
                   SAT Practice Library
                 </h1>
-                <Badge variant="brand">{tests.length} Official Exams</Badge>
+                <Badge variant="brand">{tests.length} Practice Tests</Badge>
               </div>
               <p className="mt-1 text-xs sm:text-sm text-ink-muted max-w-3xl leading-relaxed">
-                Official Digital SAT practice tests with full-length modular timing or targeted
+                Digital SAT practice tests with full-length modular timing or targeted
                 sectional drills with KaTeX and Desmos calculator support.
               </p>
             </div>
@@ -239,7 +239,7 @@ export default function PracticeLibraryPage() {
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <Badge variant="brand" size="sm">
-                          Official SAT
+                          Digital SAT
                         </Badge>
                         <span className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">
                           {test.questionsCount || 98} questions
@@ -258,8 +258,8 @@ export default function PracticeLibraryPage() {
 
                   <div className="p-5 space-y-4">
                     <p className="text-xs text-ink-muted leading-relaxed">
-                      Complete 4-module test with adaptive difficulty, KaTeX equation rendering,
-                      Bluebook-standard navigation, and Desmos calculator for Math.
+                      Complete 4-module test with timed sections, KaTeX equations,
+                      and Desmos calculator for Math.
                     </p>
 
                     {/* Module Schedule Chips */}

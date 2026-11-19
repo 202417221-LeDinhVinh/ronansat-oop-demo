@@ -345,7 +345,7 @@ export default function VocabPage() {
 
     if (studySessionComplete) {
       return createPortal(
-        <div className="fixed inset-0 z-[200] overflow-y-auto bg-canvas px-4 py-8 sm:px-6 lg:px-10 flex items-center justify-center">
+        <div className="fixed inset-0 z-[200] overflow-y-auto bg-[var(--bg-canvas)] px-4 py-8 sm:px-6 lg:px-10 flex items-center justify-center">
           <div className="relative w-full max-w-lg workbook-panel p-8 sm:p-10 text-center space-y-6 brutal-shadow-lg">
             <div className="w-16 h-16 rounded-full bg-[#e8f7f0] border border-[#b2e5ce] text-[var(--state-success)] flex items-center justify-center mx-auto shadow-sm">
               <CheckCircle2 className="w-8 h-8" />
@@ -383,44 +383,46 @@ export default function VocabPage() {
     const currentCard = studyCards[currentStudyIndex];
 
     return createPortal(
-      <div className="fixed inset-0 z-[200] overflow-y-auto bg-canvas px-4 py-5 sm:px-6 lg:px-10">
-        <div className="relative mx-auto flex min-h-[calc(100vh-2.5rem)] w-full max-w-4xl flex-col justify-between pb-8">
-          {/* Top bar */}
-          <div className="flex w-full items-center justify-between gap-4 rounded-[var(--ui-radius)] border border-border bg-surface-white px-5 py-4 brutal-shadow-sm">
-            <div>
-              <div className="text-[12px] font-semibold text-ink-muted">
-                {selectedDeck?.title || "SAT Vocabulary Flashcard Review"}
+      <div className="fixed inset-0 z-[200] overflow-y-auto bg-[var(--bg-canvas)] px-4 py-4 sm:px-6 lg:px-10">
+        <div className="relative mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-4xl flex-col justify-between pb-2">
+          {/* Top Header Group */}
+          <div>
+            <div className="flex w-full items-center justify-between gap-4 rounded-[var(--ui-radius)] border border-border bg-surface-white px-5 py-3.5 brutal-shadow-sm">
+              <div>
+                <div className="text-[12px] font-semibold text-ink-muted">
+                  {selectedDeck?.title || "SAT Vocabulary Flashcard Review"}
+                </div>
+                <div className="mt-0.5 text-[20px] font-black tracking-[-0.03em] text-ink-fg font-display">
+                  Card {currentStudyIndex + 1} of {studyCards.length}
+                </div>
               </div>
-              <div className="mt-0.5 text-[20px] font-black tracking-[-0.03em] text-ink-fg font-display">
-                Card {currentStudyIndex + 1} of {studyCards.length}
+
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-xs font-bold px-2.5 py-1 rounded-[var(--ui-radius-sm)] bg-brand-tint border border-[#ecd49d] text-brand-strong">
+                  Box {currentCard?.box || 1}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsStudying(false)}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surface-white text-ink-fg brutal-shadow-sm outline-none transition workbook-press hover:bg-canvas"
+                  aria-label="Close flash card session"
+                >
+                  <X className="h-5 w-5" />
+                </button>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <span className="font-mono text-xs font-bold px-2.5 py-1 rounded-[var(--ui-radius-sm)] bg-brand-tint border border-[#ecd49d] text-brand-strong">
-                Box {currentCard?.box || 1}
-              </span>
-              <button
-                type="button"
-                onClick={() => setIsStudying(false)}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surface-white text-ink-fg brutal-shadow-sm outline-none transition workbook-press hover:bg-canvas"
-                aria-label="Close flash card session"
-              >
-                <X className="h-5 w-5" />
-              </button>
+            {/* Progress bar */}
+            <div className="w-full h-1.5 bg-border rounded-full overflow-hidden my-3">
+              <div
+                className="h-full bg-brand transition-all duration-300 ease-out"
+                style={{ width: `${((currentStudyIndex + 1) / studyCards.length) * 100}%` }}
+              />
             </div>
           </div>
 
-          {/* Progress bar */}
-          <div className="w-full h-1.5 bg-border rounded-full overflow-hidden my-4">
-            <div
-              className="h-full bg-brand transition-all duration-300 ease-out"
-              style={{ width: `${((currentStudyIndex + 1) / studyCards.length) * 100}%` }}
-            />
-          </div>
-
-          {/* Interactive CSS 3D Flashcard */}
-          <div className="my-auto py-4 flex flex-col items-center">
+          {/* Vertically Centered Card + Rating Area */}
+          <div className="flex-1 flex flex-col items-center justify-center py-2 sm:py-3">
             <div className="w-full max-w-2xl [perspective:1200px]">
               <div
                 onClick={() => setIsFlipped(!isFlipped)}
@@ -432,14 +434,14 @@ export default function VocabPage() {
                     setIsFlipped(!isFlipped);
                   }
                 }}
-                className="block w-full min-h-[380px] sm:min-h-[420px] text-center outline-none cursor-pointer focus:outline-none focus-visible:outline-none select-none"
+                className="block w-full min-h-[320px] sm:min-h-[350px] text-center outline-none cursor-pointer focus:outline-none focus-visible:outline-none select-none"
               >
                 <div
-                  className="relative w-full min-h-[380px] sm:min-h-[420px] rounded-[var(--ui-radius-lg)] transition-transform duration-450 ease-[cubic-bezier(0.22,1,0.36,1)] [transform-style:preserve-3d]"
+                  className="relative w-full min-h-[320px] sm:min-h-[350px] rounded-[var(--ui-radius-lg)] transition-transform duration-450 ease-[cubic-bezier(0.22,1,0.36,1)] [transform-style:preserve-3d]"
                   style={{ transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)" }}
                 >
                   {/* FRONT FACE */}
-                  <div className="absolute inset-0 flex flex-col justify-between rounded-[var(--ui-radius-lg)] border border-border bg-surface-white p-8 sm:p-10 brutal-shadow-lg [backface-visibility:hidden]">
+                  <div className="absolute inset-0 flex flex-col justify-between rounded-[var(--ui-radius-lg)] border border-border bg-surface-white p-6 sm:p-8 brutal-shadow-lg [backface-visibility:hidden]">
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-semibold uppercase tracking-wider text-ink-muted">
                         SAT Flashcard
@@ -449,7 +451,7 @@ export default function VocabPage() {
                       </span>
                     </div>
 
-                    <div className="py-8 text-center space-y-3">
+                    <div className="py-6 text-center space-y-2.5">
                       <h1 className="text-4xl sm:text-5xl font-black text-ink-fg font-display tracking-tight break-words">
                         {currentCard?.word}
                       </h1>
@@ -479,7 +481,7 @@ export default function VocabPage() {
                   </div>
 
                   {/* BACK FACE */}
-                  <div className="absolute inset-0 flex flex-col justify-between rounded-[var(--ui-radius-lg)] border border-border bg-surface-white p-8 sm:p-10 brutal-shadow-lg [backface-visibility:hidden] [transform:rotateY(180deg)]">
+                  <div className="absolute inset-0 flex flex-col justify-between rounded-[var(--ui-radius-lg)] border border-border bg-surface-white p-6 sm:p-8 brutal-shadow-lg [backface-visibility:hidden] [transform:rotateY(180deg)]">
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-semibold uppercase tracking-wider text-ink-muted">
                         Definition &amp; Context
@@ -579,7 +581,7 @@ export default function VocabPage() {
           </div>
 
           {/* Bottom navigation helper */}
-          <div className="flex items-center justify-between text-xs text-ink-muted pt-4 border-t border-border">
+          <div className="mt-auto flex items-center justify-between text-xs text-ink-muted pt-3 border-t border-border">
             <span>
               Keyboard: <kbd className="px-1.5 py-0.5 rounded bg-surface-white border border-border font-mono text-[10px]">Space</kbd> flip &bull; <kbd className="px-1.5 py-0.5 rounded bg-surface-white border border-border font-mono text-[10px]">1</kbd>-<kbd className="px-1.5 py-0.5 rounded bg-surface-white border border-border font-mono text-[10px]">4</kbd> rate &bull; <kbd className="px-1.5 py-0.5 rounded bg-surface-white border border-border font-mono text-[10px]">Esc</kbd> exit
             </span>

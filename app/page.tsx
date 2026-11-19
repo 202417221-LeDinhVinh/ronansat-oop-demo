@@ -176,6 +176,13 @@ export default function HomePage() {
 
   // Compute Weekly Study Bars from recent attempts (last 7 days)
   const weeklyStudyBars = useMemo(() => {
+    const toLocalDateKey = (d: Date) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    };
+
     const days: { label: string; dateKey: string; count: number; isToday: boolean }[] = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -184,7 +191,7 @@ export default function HomePage() {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
       const dayLabel = d.toLocaleDateString("en-US", { weekday: "short" });
-      const dateKey = d.toISOString().slice(0, 10);
+      const dateKey = toLocalDateKey(d);
       days.push({
         label: dayLabel,
         dateKey,
@@ -196,15 +203,17 @@ export default function HomePage() {
     allResults.forEach((res) => {
       const dStr = res.createdAt || res.date;
       if (!dStr) return;
-      const dKey = new Date(dStr).toISOString().slice(0, 10);
+      const resDate = new Date(dStr);
+      const dKey = toLocalDateKey(resDate);
       const match = days.find((day) => day.dateKey === dKey);
       if (match) {
         match.count += 1;
       }
     });
 
+    const totalCount = days.reduce((sum, d) => sum + d.count, 0);
     const maxCount = Math.max(...days.map((d) => d.count), 1);
-    return { days, maxCount };
+    return { days, maxCount, totalCount };
   }, [allResults]);
 
   // Score change calculation
@@ -240,7 +249,7 @@ export default function HomePage() {
           Master the Digital SAT with precision Object-Oriented software.
         </h1>
         <p className="mt-4 text-base sm:text-lg text-ink-muted max-w-2xl leading-relaxed">
-          RonanSAT provides authentic Bluebook-style practice with modular timing, KaTeX LaTeX math,
+          RonanSAT provides digital SAT practice with modular timing, KaTeX LaTeX math,
           deduplicated error logs with inline retries, and Leitner spaced-repetition vocabulary.
         </p>
 
@@ -307,7 +316,7 @@ export default function HomePage() {
   // Logged In Student Dashboard
   // -------------------------------------------------------------------------
   return (
-    <div className="space-y-6 sm:space-y-8">
+    <div className="space-y-4 sm:space-y-5">
       {/* Top Greeting Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2">
         <div>
@@ -506,7 +515,7 @@ export default function HomePage() {
           {/* Recharts Area Chart */}
           <div className="p-4 sm:p-5 bg-surface-white">
             {fullLengthTrend.length >= 2 ? (
-              <div className="h-52 w-full">
+              <div className="h-44 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart
                     data={fullLengthTrend}
@@ -570,9 +579,9 @@ export default function HomePage() {
         </section>
 
         {/* Weekly Study Activity Bars */}
-        <section className="workbook-panel overflow-hidden flex flex-col justify-between">
+        <section className="workbook-panel overflow-hidden flex flex-col h-full">
           <div className="flex items-center justify-between border-b border-border-strong bg-paper-bg px-5 py-4">
-            <h2 className="font-display text-lg font-black tracking-tight text-ink-fg">
+            <h2 className="font-display text-xl sm:text-2xl font-black tracking-tight text-ink-fg">
               Weekly Activity
             </h2>
             <span className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">
@@ -580,40 +589,68 @@ export default function HomePage() {
             </span>
           </div>
 
-          <div className="p-5 flex-1 flex flex-col justify-end">
-            <div className="flex items-end justify-between gap-2 h-36 pt-4">
-              {weeklyStudyBars.days.map((day) => {
-                const ratio = day.count / weeklyStudyBars.maxCount;
-                const heightPct = day.count > 0 ? Math.max(ratio * 100, 15) : 6;
-                return (
-                  <div key={day.dateKey} className="flex flex-1 flex-col items-center gap-2">
-                    <span className="text-[10px] font-bold tabular-nums text-ink-muted h-3">
-                      {day.count > 0 ? `${day.count}t` : ""}
-                    </span>
-                    <div className="flex h-24 w-full items-end justify-center">
-                      <div
-                        className={`w-full max-w-[28px] rounded-t-sm border border-border transition-all duration-500 ${
-                          day.count > 0
-                            ? "bg-brand scheme-only-light brutal-shadow-sm"
-                            : "bg-paper-bg"
-                        }`}
-                        style={{ height: `${heightPct}%` }}
-                      />
-                    </div>
-                    <span
-                      className={`text-[11px] font-bold uppercase tracking-[0.06em] ${
-                        day.isToday ? "text-ink-fg" : "text-ink-muted"
-                      }`}
-                    >
-                      {day.label}
-                    </span>
-                  </div>
-                );
-              })}
+          {/* Metric Sub-header Strip (Matches Improvement Trend Height & Layout) */}
+          <div className="grid grid-cols-2 border-b border-border-strong bg-surface-white px-5 py-3 text-center divide-x divide-border">
+            <div>
+              <p className="text-[0.62rem] font-bold uppercase tracking-[0.08em] text-ink-muted">
+                Total Attempts
+              </p>
+              <p className="mt-1 font-display text-xl sm:text-2xl font-black tabular-nums text-ink-fg">
+                {weeklyStudyBars.totalCount}
+              </p>
             </div>
-            <p className="mt-4 pt-3 border-t border-border text-[11px] text-ink-muted text-center">
-              Attempts logged across all practice sections
-            </p>
+            <div>
+              <p className="text-[0.62rem] font-bold uppercase tracking-[0.08em] text-ink-muted">
+                Active Days
+              </p>
+              <p className="mt-1 font-display text-xl sm:text-2xl font-black tabular-nums text-ink-fg">
+                {weeklyStudyBars.days.filter((d) => d.count > 0).length} / 7
+              </p>
+            </div>
+          </div>
+
+          <div className="p-4 sm:p-5 bg-surface-white flex-1 flex flex-col justify-between">
+            {weeklyStudyBars.totalCount === 0 ? (
+              <div className="h-44 flex flex-col items-center justify-center text-center p-4 rounded-[var(--ui-radius-sm)] bg-paper-bg">
+                <Target className="w-8 h-8 text-ink-muted mb-2" />
+                <p className="text-xs font-semibold text-ink-muted">
+                  No practice activity logged in the last 7 days.
+                </p>
+              </div>
+            ) : (
+              <div className="h-44 flex flex-col justify-end">
+                <div className="flex items-end justify-between gap-1.5 sm:gap-2 h-full pb-1">
+                  {weeklyStudyBars.days.map((day) => {
+                    const ratio = day.count / weeklyStudyBars.maxCount;
+                    const heightPct = day.count > 0 ? Math.max(ratio * 100, 16) : 4;
+                    return (
+                      <div key={day.dateKey} className="flex flex-1 flex-col items-center gap-1.5 h-full justify-end">
+                        <span className="text-[10px] font-bold tabular-nums text-ink-fg h-4 flex items-center justify-center">
+                          {day.count > 0 ? day.count : ""}
+                        </span>
+                        <div className="flex h-28 w-full items-end justify-center">
+                          <div
+                            className={`w-full max-w-[28px] rounded-t-sm border border-border transition-all duration-500 ${
+                              day.count > 0
+                                ? "bg-brand scheme-only-light brutal-shadow-sm"
+                                : "bg-paper-bg"
+                            }`}
+                            style={{ height: `${heightPct}%` }}
+                          />
+                        </div>
+                        <span
+                          className={`text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.06em] truncate ${
+                            day.isToday ? "text-ink-fg font-black" : "text-ink-muted"
+                          }`}
+                        >
+                          {day.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </section>
       </div>
