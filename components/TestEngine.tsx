@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Coffee, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
 import { TestHeader, TestFooter } from "@/components/TestLayout";
@@ -8,8 +8,7 @@ import QuestionViewer from "@/components/QuestionViewer";
 import DesmosCalculator from "@/components/DesmosCalculator";
 import Loading from "@/components/Loading";
 import { Button } from "@/components/ui/Button";
-import { Dialog } from "@/components/ui/Dialog";
-import { Badge } from "@/components/ui/Badge";
+import { ModalDialog } from "@/components/ui/ModalDialog";
 import api from "@/lib/axios";
 
 interface TestStage {
@@ -39,7 +38,7 @@ export default function TestEngine({ testId }: { testId: string }) {
   const [attemptId, setAttemptId] = useState<string | null>(initialAttemptId);
   const [questions, setQuestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const [, setSubmitting] = useState(false);
 
   // Active stage / module
   const [currentStageIndex, setCurrentStageIndex] = useState(() => {
@@ -240,7 +239,7 @@ export default function TestEngine({ testId }: { testId: string }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-canvas)]">
+      <div className="min-h-screen flex items-center justify-center bg-canvas">
         <Loading message="Preparing testing room and College Board question set..." />
       </div>
     );
@@ -248,12 +247,12 @@ export default function TestEngine({ testId }: { testId: string }) {
 
   if (questions.length === 0 || currentModuleQuestions.length === 0) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[var(--bg-canvas)] text-center">
-        <AlertCircle className="w-12 h-12 text-[var(--accent-brand-strong)] mb-3" />
-        <h2 className="text-2xl font-bold text-[var(--text-primary)]">
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-canvas text-center">
+        <AlertCircle className="w-12 h-12 text-brand-strong mb-3" />
+        <h2 className="text-2xl font-bold text-ink-fg font-display">
           No questions found for this module
         </h2>
-        <p className="mt-2 text-sm text-[var(--text-muted)] max-w-md">
+        <p className="mt-2 text-sm text-ink-muted max-w-md">
           The requested section has no imported questions in the database.
         </p>
         <Button
@@ -273,7 +272,7 @@ export default function TestEngine({ testId }: { testId: string }) {
   const isMathSection = currentStage.section === "Math";
 
   return (
-    <div className="min-h-screen flex flex-col bg-[var(--bg-surface)] overflow-hidden relative select-none">
+    <div className="min-h-screen flex flex-col bg-surface-white overflow-hidden relative select-none">
       {/* Test Top Navigation Bar */}
       <TestHeader
         sectionName={`${currentStage.section} - Module ${currentStage.module}`}
@@ -299,7 +298,7 @@ export default function TestEngine({ testId }: { testId: string }) {
       />
 
       {/* Main Question Display Surface */}
-      <main className="flex-1 w-full bg-[var(--bg-canvas)] relative">
+      <main className="flex-1 w-full bg-canvas relative">
         <QuestionViewer
           question={currentQuestion}
           userAnswer={answers[currentQuestion._id] || ""}
@@ -325,7 +324,7 @@ export default function TestEngine({ testId }: { testId: string }) {
       {/* -------------------------------------------------------------------
           MODULE TRANSITION & 10-MINUTE BREAK DIALOG (Full-Length Tests)
       -------------------------------------------------------------------- */}
-      <Dialog
+      <ModalDialog
         open={transitionModalOpen}
         onClose={() => {}} // User must explicitly click proceed
         title={isBreakTime ? "10-Minute Break (Optional)" : "Module Completed"}
@@ -334,16 +333,16 @@ export default function TestEngine({ testId }: { testId: string }) {
             ? "You have finished the Reading and Writing section! Take a short break before starting Math."
             : `You have completed ${currentStage.section} Module ${currentStage.module}.`
         }
-        maxWidth="md"
+        maxWidthClassName="max-w-md"
       >
         <div className="space-y-4 py-2">
           {isBreakTime ? (
-            <div className="p-4 rounded-[var(--ui-radius-sm)] bg-[#faf1de] border border-[#ecd49d] text-center space-y-2">
-              <div className="w-10 h-10 rounded-full bg-[#f6e5be] text-[#8c6b1f] flex items-center justify-center mx-auto">
+            <div className="p-4 rounded-[var(--ui-radius-sm)] bg-brand-tint border border-[#ecd49d] text-center space-y-2">
+              <div className="w-10 h-10 rounded-full bg-[#f6e5be] text-brand-strong flex items-center justify-center mx-auto">
                 <Coffee className="w-5 h-5" />
               </div>
-              <p className="text-sm font-bold text-[#8c6b1f]">Scheduled Break</p>
-              <p className="text-xs text-[#a07c24] max-w-sm mx-auto">
+              <p className="text-sm font-bold text-brand-strong">Scheduled Break</p>
+              <p className="text-xs text-[#a07c24] max-w-sm mx-auto leading-relaxed">
                 On the official Digital SAT, you receive an optional 10-minute break between
                 Reading &amp; Writing and Math. When you are ready, click below to start Math Module 1.
               </p>
@@ -362,7 +361,7 @@ export default function TestEngine({ testId }: { testId: string }) {
             </div>
           )}
 
-          <div className="flex justify-end pt-2">
+          <div className="flex justify-end pt-2 border-t border-border">
             <Button
               variant="primary"
               size="md"
@@ -376,7 +375,7 @@ export default function TestEngine({ testId }: { testId: string }) {
             </Button>
           </div>
         </div>
-      </Dialog>
+      </ModalDialog>
     </div>
   );
 }

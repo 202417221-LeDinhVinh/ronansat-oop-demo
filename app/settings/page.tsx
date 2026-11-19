@@ -5,10 +5,8 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { User, Lock, Save, CheckCircle2, AlertCircle, Shield } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 import Loading from "@/components/Loading";
 import api from "@/lib/axios";
 import { API_PATHS } from "@/lib/apiPaths";
@@ -39,12 +37,16 @@ export default function SettingsPage() {
 
   if (status === "unauthenticated" || !session) {
     return (
-      <div className="py-16 text-center space-y-4">
-        <AlertCircle className="w-12 h-12 text-[var(--state-danger)] mx-auto" />
-        <h2 className="text-xl font-bold text-[var(--text-primary)]">Please Sign In</h2>
-        <p className="text-sm text-[var(--text-muted)]">
-          You must be signed in to manage your account settings.
-        </p>
+      <div className="py-16 text-center space-y-4 max-w-md mx-auto">
+        <div className="w-14 h-14 rounded-full bg-[#fdede8] border border-[#f8c4b4] text-[var(--state-danger)] flex items-center justify-center mx-auto shadow-sm">
+          <AlertCircle className="w-7 h-7" />
+        </div>
+        <div className="space-y-1">
+          <h2 className="text-xl font-black text-ink-fg font-display">Please Sign In</h2>
+          <p className="text-sm text-ink-muted leading-relaxed">
+            You must be signed in to manage your account settings.
+          </p>
+        </div>
         <Link href="/auth">
           <Button variant="primary" size="sm">
             Sign In
@@ -126,7 +128,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-6 sm:space-y-8 max-w-3xl">
+    <div className="space-y-6 sm:space-y-8 max-w-3xl mx-auto">
       <PageHeader
         title="Account &amp; Security Settings"
         description="Manage your profile name, account credentials, and platform role."
@@ -138,20 +140,20 @@ export default function SettingsPage() {
       />
 
       {/* Profile Details Card */}
-      <Card>
-        <div className="pb-3 border-b border-[var(--border-subtle)] mb-5">
-          <h3 className="text-base font-bold text-[var(--text-primary)] font-display flex items-center gap-2">
-            <User className="w-4 h-4 text-[var(--accent-brand-strong)]" />
+      <div className="workbook-panel p-5 sm:p-6 space-y-5">
+        <div className="pb-3 border-b border-border">
+          <h3 className="text-base font-bold text-ink-fg font-display flex items-center gap-2">
+            <User className="w-4 h-4 text-brand-strong" />
             Profile Details
           </h3>
-          <p className="text-xs text-[var(--text-muted)]">
+          <p className="text-xs text-ink-muted mt-0.5">
             Update your public display name.
           </p>
         </div>
 
         {profileMessage && (
           <div
-            className={`mb-4 p-3 rounded-[var(--ui-radius-sm)] text-xs font-semibold flex items-center gap-2 ${
+            className={`p-3 rounded-[var(--ui-radius-sm)] text-xs font-semibold flex items-center gap-2 ${
               profileMessage.type === "success"
                 ? "bg-[#e8f7f0] border border-[#b2e5ce] text-[#166e4b]"
                 : "bg-[#fdede8] border border-[#f8c4b4] text-[#ab3d19]"
@@ -168,51 +170,55 @@ export default function SettingsPage() {
 
         <form onSubmit={handleUpdateProfile} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1.5">
               Email Address (Fixed)
             </label>
             <input
               type="email"
               disabled
               value={session.user?.email || ""}
-              className="workbook-input bg-[var(--bg-canvas)] text-[var(--text-muted)] cursor-not-allowed font-mono"
+              className="workbook-input w-full bg-canvas text-ink-muted cursor-not-allowed font-mono text-xs"
             />
           </div>
 
           <div>
-            <Input
-              label="Full Name"
+            <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1.5">
+              Full Name
+            </label>
+            <input
+              type="text"
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Your full name"
+              className="workbook-input w-full bg-surface-white"
             />
           </div>
 
           <div className="pt-2 flex justify-end">
             <Button variant="primary" size="sm" type="submit" loading={isSaving}>
-              <Save className="w-3.5 h-3.5 mr-1" />
+              <Save className="w-3.5 h-3.5 mr-1.5" />
               <span>Save Profile Name</span>
             </Button>
           </div>
         </form>
-      </Card>
+      </div>
 
       {/* Change Password Card */}
-      <Card>
-        <div className="pb-3 border-b border-[var(--border-subtle)] mb-5">
-          <h3 className="text-base font-bold text-[var(--text-primary)] font-display flex items-center gap-2">
-            <Lock className="w-4 h-4 text-[var(--accent-brand-strong)]" />
+      <div className="workbook-panel p-5 sm:p-6 space-y-5">
+        <div className="pb-3 border-b border-border">
+          <h3 className="text-base font-bold text-ink-fg font-display flex items-center gap-2">
+            <Lock className="w-4 h-4 text-brand-strong" />
             Security &amp; Password
           </h3>
-          <p className="text-xs text-[var(--text-muted)]">
+          <p className="text-xs text-ink-muted mt-0.5">
             Change your account password.
           </p>
         </div>
 
         {passwordMessage && (
           <div
-            className={`mb-4 p-3 rounded-[var(--ui-radius-sm)] text-xs font-semibold flex items-center gap-2 ${
+            className={`p-3 rounded-[var(--ui-radius-sm)] text-xs font-semibold flex items-center gap-2 ${
               passwordMessage.type === "success"
                 ? "bg-[#e8f7f0] border border-[#b2e5ce] text-[#166e4b]"
                 : "bg-[#fdede8] border border-[#f8c4b4] text-[#ab3d19]"
@@ -228,32 +234,47 @@ export default function SettingsPage() {
         )}
 
         <form onSubmit={handleUpdatePassword} className="space-y-4">
-          <Input
-            label="Current Password"
-            type="password"
-            required
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            placeholder="••••••••••••"
-          />
+          <div>
+            <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1.5">
+              Current Password
+            </label>
+            <input
+              type="password"
+              required
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="••••••••••••"
+              className="workbook-input w-full bg-surface-white"
+            />
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Input
-              label="New Password"
-              type="password"
-              required
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="••••••••••••"
-            />
-            <Input
-              label="Confirm New Password"
-              type="password"
-              required
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="••••••••••••"
-            />
+            <div>
+              <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1.5">
+                New Password
+              </label>
+              <input
+                type="password"
+                required
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="••••••••••••"
+                className="workbook-input w-full bg-surface-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1.5">
+                Confirm New Password
+              </label>
+              <input
+                type="password"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="••••••••••••"
+                className="workbook-input w-full bg-surface-white"
+              />
+            </div>
           </div>
 
           <div className="pt-2 flex justify-end">
@@ -267,7 +288,7 @@ export default function SettingsPage() {
             </Button>
           </div>
         </form>
-      </Card>
+      </div>
     </div>
   );
 }

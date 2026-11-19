@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import {
@@ -13,16 +13,18 @@ import {
   Edit2,
   Trash2,
   Languages,
+  Sparkles,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { StatCard } from "@/components/ui/StatCard";
 import { Tabs } from "@/components/ui/Tabs";
-import { Dialog } from "@/components/ui/Dialog";
-import { Input } from "@/components/ui/Input";
-import { Textarea } from "@/components/ui/Textarea";
+import { ModalDialog } from "@/components/ui/ModalDialog";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { SearchControl } from "@/components/ui/SearchControl";
+import { CompactPagination } from "@/components/ui/CompactPagination";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TableSkeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import Loading from "@/components/Loading";
@@ -38,23 +40,29 @@ export default function AdminPage() {
     questionsCount: 0,
     attemptsCount: 0,
   });
-  const [loadingMetrics, setLoadingMetrics] = useState(true);
+  const [, setLoadingMetrics] = useState(true);
 
   // Tests state
   const [tests, setTests] = useState<any[]>([]);
   const [loadingTests, setLoadingTests] = useState(false);
+  const [testSearch, setTestSearch] = useState("");
   const [testModalOpen, setTestModalOpen] = useState(false);
   const [editingTestId, setEditingTestId] = useState<string | null>(null);
   const [testTitle, setTestTitle] = useState("");
   const [testTimeLimit, setTestTimeLimit] = useState(134);
   const [testDifficulty, setTestDifficulty] = useState("medium");
+  const [testToDelete, setTestToDelete] = useState<string | null>(null);
 
   // Questions state
   const [selectedTestId, setSelectedTestId] = useState<string>("");
   const [questions, setQuestions] = useState<any[]>([]);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
+  const [questionSearch, setQuestionSearch] = useState("");
+  const [questionPage, setQuestionPage] = useState(1);
+  const QUESTIONS_PER_PAGE = 10;
   const [questionModalOpen, setQuestionModalOpen] = useState(false);
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
+  const [questionToDelete, setQuestionToDelete] = useState<string | null>(null);
 
   // Question Form Fields
   const [qType, setQType] = useState<"multiple_choice" | "spr">("multiple_choice");
@@ -74,14 +82,19 @@ export default function AdminPage() {
   // Users state
   const [users, setUsers] = useState<any[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [userSearch, setUserSearch] = useState("");
+  const [userPage, setUserPage] = useState(1);
+  const USERS_PER_PAGE = 10;
 
   // System Vocab state
   const [vocabDecks, setVocabDecks] = useState<any[]>([]);
   const [loadingVocab, setLoadingVocab] = useState(false);
+  const [vocabSearch, setVocabSearch] = useState("");
   const [vocabModalOpen, setVocabModalOpen] = useState(false);
   const [editingDeckId, setEditingDeckId] = useState<string | null>(null);
   const [deckTitle, setDeckTitle] = useState("");
   const [deckDesc, setDeckDesc] = useState("");
+  const [vocabDeckToDelete, setVocabDeckToDelete] = useState<string | null>(null);
 
   const isAdmin = session?.user?.role === "admin";
 
@@ -128,6 +141,7 @@ export default function AdminPage() {
       setLoadingQuestions(true);
       const res = await api.get(`/api/questions?testId=${testId}`);
       setQuestions(res.data?.questions || []);
+      setQuestionPage(1);
     } catch (err) {
       console.error("Failed to load questions:", err);
     } finally {
@@ -146,6 +160,7 @@ export default function AdminPage() {
       setLoadingUsers(true);
       const res = await api.get("/api/admin/users");
       setUsers(res.data?.users || []);
+      setUserPage(1);
     } catch (err) {
       console.error("Failed to load users:", err);
     } finally {
@@ -215,10 +230,11 @@ export default function AdminPage() {
     }
   };
 
-  const handleDeleteTest = async (testId: string) => {
-    if (!confirm("Are you sure you want to delete this test and its associated questions?")) return;
+  const confirmDeleteTest = async () => {
+    if (!testToDelete) return;
     try {
-      await api.delete(`/api/admin/tests/${testId}`);
+      await api.delete(`/api/admin/tests/${testToDelete}`);
+      setTestToDelete(null);
       fetchTests();
       fetchMetrics();
     } catch (err) {
@@ -304,10 +320,11 @@ export default function AdminPage() {
     }
   };
 
-  const handleDeleteQuestion = async (qId: string) => {
-    if (!confirm("Delete this question from the test?")) return;
+  const confirmDeleteQuestion = async () => {
+    if (!questionToDelete) return;
     try {
-      await api.delete(`/api/admin/questions/${qId}`);
+      await api.delete(`/api/admin/questions/${questionToDelete}`);
+      setQuestionToDelete(null);
       if (selectedTestId) fetchQuestions(selectedTestId);
       fetchMetrics();
     } catch (err) {
@@ -368,15 +385,74 @@ export default function AdminPage() {
     }
   };
 
-  const handleDeleteVocabDeck = async (deckId: string) => {
-    if (!confirm("Delete this system vocab deck?")) return;
+  const confirmDeleteVocabDeck = async () => {
+    if (!vocabDeckToDelete) return;
     try {
-      await api.delete(`/api/admin/vocab/decks/${deckId}`);
+      await api.delete(`/api/admin/vocab/decks/${vocabDeckToDelete}`);
+      setVocabDeckToDelete(null);
       fetchVocabDecks();
     } catch (err) {
       console.error("Failed to delete system deck:", err);
     }
   };
+
+  // Filtered and Paginated Collections
+  const filteredTests = useMemo(() => {
+    if (!testSearch.trim()) return tests;
+    const q = testSearch.toLowerCase();
+    return tests.filter(
+      (t) =>
+        t.title?.toLowerCase().includes(q) ||
+        t.difficulty?.toLowerCase().includes(q)
+    );
+  }, [tests, testSearch]);
+
+  const filteredQuestions = useMemo(() => {
+    if (!questionSearch.trim()) return questions;
+    const q = questionSearch.toLowerCase();
+    return questions.filter(
+      (item) =>
+        item.questionText?.toLowerCase().includes(q) ||
+        item.skill?.toLowerCase().includes(q) ||
+        item.domain?.toLowerCase().includes(q) ||
+        item.section?.toLowerCase().includes(q)
+    );
+  }, [questions, questionSearch]);
+
+  const paginatedQuestions = useMemo(() => {
+    const start = (questionPage - 1) * QUESTIONS_PER_PAGE;
+    return filteredQuestions.slice(start, start + QUESTIONS_PER_PAGE);
+  }, [filteredQuestions, questionPage]);
+
+  const totalQuestionPages = Math.ceil(filteredQuestions.length / QUESTIONS_PER_PAGE);
+
+  const filteredUsers = useMemo(() => {
+    if (!userSearch.trim()) return users;
+    const q = userSearch.toLowerCase();
+    return users.filter(
+      (u) =>
+        u.name?.toLowerCase().includes(q) ||
+        u.email?.toLowerCase().includes(q) ||
+        u.role?.toLowerCase().includes(q)
+    );
+  }, [users, userSearch]);
+
+  const paginatedUsers = useMemo(() => {
+    const start = (userPage - 1) * USERS_PER_PAGE;
+    return filteredUsers.slice(start, start + USERS_PER_PAGE);
+  }, [filteredUsers, userPage]);
+
+  const totalUserPages = Math.ceil(filteredUsers.length / USERS_PER_PAGE);
+
+  const filteredVocab = useMemo(() => {
+    if (!vocabSearch.trim()) return vocabDecks;
+    const q = vocabSearch.toLowerCase();
+    return vocabDecks.filter(
+      (v) =>
+        v.title?.toLowerCase().includes(q) ||
+        v.description?.toLowerCase().includes(q)
+    );
+  }, [vocabDecks, vocabSearch]);
 
   // -------------------------------------------------------------------------
   // ACCESS GUARD
@@ -387,16 +463,18 @@ export default function AdminPage() {
 
   if (!session || !isAdmin) {
     return (
-      <div className="py-16 text-center space-y-4">
-        <div className="w-12 h-12 rounded-full bg-[#fdede8] text-[var(--state-danger)] flex items-center justify-center mx-auto">
-          <ShieldCheck className="w-6 h-6" />
+      <div className="py-16 text-center space-y-4 max-w-md mx-auto">
+        <div className="w-14 h-14 rounded-full bg-[#fdede8] border border-[#f8c4b4] text-[var(--state-danger)] flex items-center justify-center mx-auto shadow-sm">
+          <ShieldCheck className="w-7 h-7" />
         </div>
-        <h2 className="text-xl font-bold text-[var(--text-primary)] font-display">
-          Unauthorized Access
-        </h2>
-        <p className="text-sm text-[var(--text-muted)] max-w-md mx-auto">
-          You must be logged in with an administrator account to view the Admin Studio.
-        </p>
+        <div className="space-y-1">
+          <h2 className="text-xl font-black text-ink-fg font-display">
+            Unauthorized Access
+          </h2>
+          <p className="text-sm text-ink-muted leading-relaxed">
+            You must be logged in with an administrator account to view the Admin Studio.
+          </p>
+        </div>
         <Link href="/auth">
           <Button variant="primary" size="sm">
             Sign In as Admin
@@ -407,12 +485,12 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="space-y-6 sm:space-y-8">
+    <div className="space-y-6 sm:space-y-8 max-w-7xl mx-auto">
       {/* Page Header */}
       <PageHeader
         title="Admin Management Studio"
         description="Unified management panel for tests, questions, users, and system vocabulary."
-        badge={<Badge variant="brand">Admin Role</Badge>}
+        badge={<Badge variant="brand">Administrator</Badge>}
       />
 
       {/* Tabs */}
@@ -437,19 +515,19 @@ export default function AdminPage() {
             <StatCard
               label="Registered Users"
               value={metrics.usersCount}
-              sublabel="Students &amp; Admins"
+              sublabel="Students & Admins"
               icon={<Users className="w-4 h-4" />}
             />
             <StatCard
               label="Tests Catalog"
               value={metrics.testsCount}
-              sublabel="Active Official Tests"
+              sublabel="Official SAT Tests"
               icon={<BookOpen className="w-4 h-4" />}
             />
             <StatCard
               label="Questions Bank"
               value={metrics.questionsCount}
-              sublabel="MCQ &amp; SPR items"
+              sublabel="MCQ & SPR items"
               icon={<HelpCircle className="w-4 h-4" />}
             />
             <StatCard
@@ -460,16 +538,19 @@ export default function AdminPage() {
             />
           </div>
 
-          <Card>
-            <h3 className="text-base font-bold text-[var(--text-primary)] font-display mb-2">
-              Platform Status
-            </h3>
-            <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-              RonanSAT OOP Edition is running with in-memory MongoDB persistence and zero-config demo
-              accounts. All question imports from College Board sample tests have been verified with KaTeX
-              math rendering and SPR answer equivalences.
+          <div className="workbook-panel p-5 sm:p-6 space-y-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-brand" />
+              <h3 className="text-base font-bold text-ink-fg font-display">
+                RonanSAT Platform Status
+              </h3>
+            </div>
+            <p className="text-xs text-ink-muted leading-relaxed max-w-3xl">
+              RonanSAT OOP Edition is running with in-memory MongoDB persistence and zero-config demo accounts.
+              All question imports from College Board sample tests are verified with KaTeX mathematical typography,
+              SPR answer equivalences, and Leitner spaced-repetition vocabulary tracking.
             </p>
-          </Card>
+          </div>
         </div>
       )}
 
@@ -477,96 +558,109 @@ export default function AdminPage() {
           TAB 2: TESTS CRUD
       -------------------------------------------------------------------- */}
       {activeTab === "tests" && (
-        <Card className="space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
+        <div className="workbook-panel p-5 sm:p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-border">
             <div>
-              <h3 className="text-base font-bold text-[var(--text-primary)] font-display">
+              <h3 className="text-base font-bold text-ink-fg font-display">
                 Tests Catalog ({tests.length})
               </h3>
-              <p className="text-xs text-[var(--text-muted)]">
+              <p className="text-xs text-ink-muted mt-0.5">
                 Manage test titles, timing limits, and section structure.
               </p>
             </div>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => handleOpenTestModal()}
-              icon={<Plus className="w-4 h-4" />}
-            >
-              New Test
-            </Button>
+            <div className="flex items-center gap-2.5">
+              <SearchControl
+                query={testSearch}
+                onQueryChange={setTestSearch}
+                placeholder="Search tests..."
+              />
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => handleOpenTestModal()}
+                icon={<Plus className="w-4 h-4" />}
+              >
+                <span>New Test</span>
+              </Button>
+            </div>
           </div>
 
           {loadingTests ? (
             <TableSkeleton rows={3} />
+          ) : filteredTests.length === 0 ? (
+            <EmptyState
+              icon={<BookOpen className="w-8 h-8 text-ink-muted" />}
+              title="No tests found"
+              description="Create your first test or clear your search query."
+            />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-[var(--border-subtle)] text-[var(--text-muted)] font-semibold uppercase tracking-wider">
-                    <th className="py-2.5 px-3">Title</th>
-                    <th className="py-2.5 px-3">Time Limit</th>
-                    <th className="py-2.5 px-3">Difficulty</th>
-                    <th className="py-2.5 px-3">Questions</th>
-                    <th className="py-2.5 px-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--border-subtle)]">
-                  {tests.map((test) => (
-                    <tr key={test._id} className="hover:bg-[var(--bg-canvas)]/50">
-                      <td className="py-3 px-3 font-bold text-[var(--text-primary)] text-sm">
+            <div className="relative overflow-x-auto max-h-[560px]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="sticky top-0 bg-surface-white z-10">Title</TableHead>
+                    <TableHead className="sticky top-0 bg-surface-white z-10 w-32">Time Limit</TableHead>
+                    <TableHead className="sticky top-0 bg-surface-white z-10 w-28">Difficulty</TableHead>
+                    <TableHead className="sticky top-0 bg-surface-white z-10 w-28">Questions</TableHead>
+                    <TableHead className="sticky top-0 bg-surface-white z-10 w-24 text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredTests.map((test) => (
+                    <TableRow key={test._id} className="hover:bg-canvas/50">
+                      <TableCell className="font-bold text-ink-fg font-display text-sm">
                         {test.title}
-                      </td>
-                      <td className="py-3 px-3">{test.timeLimit || 134} mins</td>
-                      <td className="py-3 px-3">
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">{test.timeLimit || 134} mins</TableCell>
+                      <TableCell>
                         <Badge variant="brand" size="sm">
                           {test.difficulty || "medium"}
                         </Badge>
-                      </td>
-                      <td className="py-3 px-3">{test.questionsCount || 98} Qs</td>
-                      <td className="py-3 px-3 text-right">
+                      </TableCell>
+                      <TableCell className="font-mono text-xs font-semibold">{test.questionsCount || 98} Qs</TableCell>
+                      <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           <button
                             type="button"
                             onClick={() => handleOpenTestModal(test)}
-                            className="p-1.5 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-canvas)] cursor-pointer"
+                            className="p-1.5 rounded text-ink-muted hover:text-ink-fg hover:bg-canvas transition-colors"
                             title="Edit test"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDeleteTest(test._id)}
-                            className="p-1.5 rounded text-[var(--text-muted)] hover:text-[var(--state-danger)] hover:bg-[#fdede8] cursor-pointer"
+                            onClick={() => setTestToDelete(test._id)}
+                            className="p-1.5 rounded text-ink-muted hover:text-[var(--state-danger)] hover:bg-[#fdede8] transition-colors"
                             title="Delete test"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           )}
-        </Card>
+        </div>
       )}
 
       {/* -------------------------------------------------------------------
           TAB 3: QUESTIONS CRUD & EDITOR
       -------------------------------------------------------------------- */}
       {activeTab === "questions" && (
-        <Card className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-[var(--border-subtle)]">
+        <div className="workbook-panel p-5 sm:p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-border">
             <div className="flex items-center gap-3">
-              <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
+              <label className="text-xs font-bold uppercase tracking-wider text-ink-muted">
                 Select Test:
               </label>
               <select
                 value={selectedTestId}
                 onChange={(e) => setSelectedTestId(e.target.value)}
-                className="workbook-input max-w-xs text-xs font-bold"
+                className="workbook-input max-w-xs text-xs font-bold bg-surface-white"
               >
                 {tests.map((t) => (
                   <option key={t._id} value={t._id}>
@@ -576,21 +670,31 @@ export default function AdminPage() {
               </select>
             </div>
 
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => handleOpenQuestionModal()}
-              icon={<Plus className="w-4 h-4" />}
-            >
-              Add Question
-            </Button>
+            <div className="flex items-center gap-2.5">
+              <SearchControl
+                query={questionSearch}
+                onQueryChange={(val) => {
+                  setQuestionSearch(val);
+                  setQuestionPage(1);
+                }}
+                placeholder="Search questions..."
+              />
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => handleOpenQuestionModal()}
+                icon={<Plus className="w-4 h-4" />}
+              >
+                <span>Add Question</span>
+              </Button>
+            </div>
           </div>
 
           {loadingQuestions ? (
             <TableSkeleton rows={5} />
-          ) : questions.length === 0 ? (
+          ) : filteredQuestions.length === 0 ? (
             <EmptyState
-              icon={<HelpCircle className="w-8 h-8" />}
+              icon={<HelpCircle className="w-8 h-8 text-ink-muted" />}
               title="No questions in this test"
               description="Add your first question to build out this test."
               action={
@@ -600,235 +704,309 @@ export default function AdminPage() {
               }
             />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-[var(--border-subtle)] text-[var(--text-muted)] font-semibold uppercase tracking-wider">
-                    <th className="py-2.5 px-3">#</th>
-                    <th className="py-2.5 px-3">Section / Module</th>
-                    <th className="py-2.5 px-3">Question Snippet</th>
-                    <th className="py-2.5 px-3">Type</th>
-                    <th className="py-2.5 px-3">Skill</th>
-                    <th className="py-2.5 px-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--border-subtle)]">
-                  {questions.map((q, idx) => (
-                    <tr key={q._id} className="hover:bg-[var(--bg-canvas)]/50">
-                      <td className="py-3 px-3 font-mono font-bold">{idx + 1}</td>
-                      <td className="py-3 px-3 font-semibold text-[var(--text-primary)]">
-                        {q.section} (M{q.module || 1})
-                      </td>
-                      <td className="py-3 px-3 max-w-xs text-[var(--text-primary)]">
-                        <p className="line-clamp-2">{q.questionText}</p>
-                      </td>
-                      <td className="py-3 px-3">
-                        <Badge variant={q.questionType === "spr" ? "info" : "muted"} size="sm">
-                          {q.questionType === "spr" ? "SPR" : "MCQ"}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-3 text-[var(--text-muted)]">{q.skill}</td>
-                      <td className="py-3 px-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenQuestionModal(q)}
-                            className="p-1.5 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-canvas)] cursor-pointer"
-                            title="Edit question"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteQuestion(q._id)}
-                            className="p-1.5 rounded text-[var(--text-muted)] hover:text-[var(--state-danger)] hover:bg-[#fdede8] cursor-pointer"
-                            title="Delete question"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-4">
+              <div className="relative overflow-x-auto max-h-[560px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="sticky top-0 bg-surface-white z-10 w-12 font-mono">#</TableHead>
+                      <TableHead className="sticky top-0 bg-surface-white z-10 w-44">Section / Mod</TableHead>
+                      <TableHead className="sticky top-0 bg-surface-white z-10">Question Snippet</TableHead>
+                      <TableHead className="sticky top-0 bg-surface-white z-10 w-24">Type</TableHead>
+                      <TableHead className="sticky top-0 bg-surface-white z-10 w-44">Skill</TableHead>
+                      <TableHead className="sticky top-0 bg-surface-white z-10 w-24 text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedQuestions.map((q, idx) => {
+                      const absoluteIdx = (questionPage - 1) * QUESTIONS_PER_PAGE + idx + 1;
+                      return (
+                        <TableRow key={q._id} className="hover:bg-canvas/50">
+                          <TableCell className="font-mono font-bold text-ink-muted text-xs">
+                            {absoluteIdx}
+                          </TableCell>
+                          <TableCell className="font-semibold text-ink-fg text-xs">
+                            {q.section} (M{q.module || 1})
+                          </TableCell>
+                          <TableCell className="max-w-md text-ink-fg">
+                            <p className="line-clamp-2 text-xs font-medium leading-relaxed">
+                              {q.questionText}
+                            </p>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={q.questionType === "spr" ? "info" : "muted"} size="sm">
+                              {q.questionType === "spr" ? "SPR" : "MCQ"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs text-ink-muted truncate max-w-[160px]">
+                            {q.skill}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenQuestionModal(q)}
+                                className="p-1.5 rounded text-ink-muted hover:text-ink-fg hover:bg-canvas transition-colors"
+                                title="Edit question"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setQuestionToDelete(q._id)}
+                                className="p-1.5 rounded text-ink-muted hover:text-[var(--state-danger)] hover:bg-[#fdede8] transition-colors"
+                                title="Delete question"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {totalQuestionPages > 1 && (
+                <div className="pt-2 flex justify-center">
+                  <CompactPagination
+                    page={questionPage}
+                    totalPages={totalQuestionPages}
+                    onChange={setQuestionPage}
+                  />
+                </div>
+              )}
             </div>
           )}
-        </Card>
+        </div>
       )}
 
       {/* -------------------------------------------------------------------
           TAB 4: USERS & ROLE MANAGEMENT
       -------------------------------------------------------------------- */}
       {activeTab === "users" && (
-        <Card className="space-y-4">
-          <div className="pb-3 border-b border-[var(--border-subtle)]">
-            <h3 className="text-base font-bold text-[var(--text-primary)] font-display">
-              User Accounts &amp; Roles ({users.length})
-            </h3>
-            <p className="text-xs text-[var(--text-muted)]">
-              Manage platform credentials and switch roles between student and administrator.
-            </p>
+        <div className="workbook-panel p-5 sm:p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-border">
+            <div>
+              <h3 className="text-base font-bold text-ink-fg font-display">
+                User Accounts &amp; Roles ({users.length})
+              </h3>
+              <p className="text-xs text-ink-muted mt-0.5">
+                Manage platform credentials and switch roles between student and administrator.
+              </p>
+            </div>
+            <SearchControl
+              query={userSearch}
+              onQueryChange={(val) => {
+                setUserSearch(val);
+                setUserPage(1);
+              }}
+              placeholder="Search users..."
+            />
           </div>
 
           {loadingUsers ? (
             <TableSkeleton rows={3} />
+          ) : filteredUsers.length === 0 ? (
+            <EmptyState
+              icon={<Users className="w-8 h-8 text-ink-muted" />}
+              title="No users found"
+              description="No user accounts match your search filter."
+            />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-[var(--border-subtle)] text-[var(--text-muted)] font-semibold uppercase tracking-wider">
-                    <th className="py-2.5 px-3">User</th>
-                    <th className="py-2.5 px-3">Email</th>
-                    <th className="py-2.5 px-3">Current Role</th>
-                    <th className="py-2.5 px-3 text-right">Change Role</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--border-subtle)]">
-                  {users.map((u) => (
-                    <tr key={u._id} className="hover:bg-[var(--bg-canvas)]/50">
-                      <td className="py-3 px-3 font-bold text-[var(--text-primary)]">
-                        {u.name || "Student"}
-                      </td>
-                      <td className="py-3 px-3 font-mono text-[var(--text-muted)]">{u.email}</td>
-                      <td className="py-3 px-3">
-                        <Badge variant={u.role === "admin" ? "brand" : "info"} size="sm">
-                          {u.role}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-3 text-right">
-                        <select
-                          value={u.role}
-                          onChange={(e) =>
-                            handleChangeRole(u._id, e.target.value as "student" | "admin")
-                          }
-                          className="workbook-input max-w-[120px] text-xs font-semibold"
-                        >
-                          <option value="student">student</option>
-                          <option value="admin">admin</option>
-                        </select>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-4">
+              <div className="relative overflow-x-auto max-h-[560px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="sticky top-0 bg-surface-white z-10">User</TableHead>
+                      <TableHead className="sticky top-0 bg-surface-white z-10">Email</TableHead>
+                      <TableHead className="sticky top-0 bg-surface-white z-10 w-32">Current Role</TableHead>
+                      <TableHead className="sticky top-0 bg-surface-white z-10 w-36 text-right">Change Role</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedUsers.map((u) => (
+                      <TableRow key={u._id} className="hover:bg-canvas/50">
+                        <TableCell className="font-bold text-ink-fg font-display text-sm">
+                          {u.name || "Student"}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-ink-muted">{u.email}</TableCell>
+                        <TableCell>
+                          <Badge variant={u.role === "admin" ? "brand" : "info"} size="sm">
+                            {u.role}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <select
+                            value={u.role}
+                            onChange={(e) =>
+                              handleChangeRole(u._id, e.target.value as "student" | "admin")
+                            }
+                            className="workbook-input max-w-[120px] text-xs font-semibold bg-surface-white"
+                          >
+                            <option value="student">student</option>
+                            <option value="admin">admin</option>
+                          </select>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {totalUserPages > 1 && (
+                <div className="pt-2 flex justify-center">
+                  <CompactPagination
+                    page={userPage}
+                    totalPages={totalUserPages}
+                    onChange={setUserPage}
+                  />
+                </div>
+              )}
             </div>
           )}
-        </Card>
+        </div>
       )}
 
       {/* -------------------------------------------------------------------
           TAB 5: SYSTEM VOCAB DECKS
       -------------------------------------------------------------------- */}
       {activeTab === "vocab" && (
-        <Card className="space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
+        <div className="workbook-panel p-5 sm:p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-border">
             <div>
-              <h3 className="text-base font-bold text-[var(--text-primary)] font-display">
+              <h3 className="text-base font-bold text-ink-fg font-display">
                 System Vocab Decks ({vocabDecks.length})
               </h3>
-              <p className="text-xs text-[var(--text-muted)]">
+              <p className="text-xs text-ink-muted mt-0.5">
                 Manage global vocabulary decks available to all platform students.
               </p>
             </div>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => handleOpenVocabModal()}
-              icon={<Plus className="w-4 h-4" />}
-            >
-              New System Deck
-            </Button>
+            <div className="flex items-center gap-2.5">
+              <SearchControl
+                query={vocabSearch}
+                onQueryChange={setVocabSearch}
+                placeholder="Search decks..."
+              />
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => handleOpenVocabModal()}
+                icon={<Plus className="w-4 h-4" />}
+              >
+                <span>New System Deck</span>
+              </Button>
+            </div>
           </div>
 
           {loadingVocab ? (
             <TableSkeleton rows={3} />
+          ) : filteredVocab.length === 0 ? (
+            <EmptyState
+              icon={<Languages className="w-8 h-8 text-ink-muted" />}
+              title="No system decks found"
+              description="Create a system vocabulary deck or adjust your search filter."
+            />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-[var(--border-subtle)] text-[var(--text-muted)] font-semibold uppercase tracking-wider">
-                    <th className="py-2.5 px-3">Title</th>
-                    <th className="py-2.5 px-3">Description</th>
-                    <th className="py-2.5 px-3">Card Count</th>
-                    <th className="py-2.5 px-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--border-subtle)]">
-                  {vocabDecks.map((deck) => (
-                    <tr key={deck._id} className="hover:bg-[var(--bg-canvas)]/50">
-                      <td className="py-3 px-3 font-bold text-[var(--text-primary)] text-sm">
+            <div className="relative overflow-x-auto max-h-[560px]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="sticky top-0 bg-surface-white z-10">Title</TableHead>
+                    <TableHead className="sticky top-0 bg-surface-white z-10">Description</TableHead>
+                    <TableHead className="sticky top-0 bg-surface-white z-10 w-28">Card Count</TableHead>
+                    <TableHead className="sticky top-0 bg-surface-white z-10 w-24 text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredVocab.map((deck) => (
+                    <TableRow key={deck._id} className="hover:bg-canvas/50">
+                      <TableCell className="font-bold text-ink-fg font-display text-sm">
                         {deck.title}
-                      </td>
-                      <td className="py-3 px-3 text-[var(--text-muted)] max-w-sm">
+                      </TableCell>
+                      <TableCell className="text-xs text-ink-muted max-w-sm leading-relaxed">
                         {deck.description}
-                      </td>
-                      <td className="py-3 px-3 font-mono font-bold">{deck.totalCards || 0}</td>
-                      <td className="py-3 px-3 text-right">
+                      </TableCell>
+                      <TableCell className="font-mono text-xs font-bold text-brand-strong">
+                        {deck.totalCards || 0} cards
+                      </TableCell>
+                      <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           <button
                             type="button"
                             onClick={() => handleOpenVocabModal(deck)}
-                            className="p-1.5 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-canvas)] cursor-pointer"
+                            className="p-1.5 rounded text-ink-muted hover:text-ink-fg hover:bg-canvas transition-colors"
                             title="Edit deck"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDeleteVocabDeck(deck._id)}
-                            className="p-1.5 rounded text-[var(--text-muted)] hover:text-[var(--state-danger)] hover:bg-[#fdede8] cursor-pointer"
+                            onClick={() => setVocabDeckToDelete(deck._id)}
+                            className="p-1.5 rounded text-ink-muted hover:text-[var(--state-danger)] hover:bg-[#fdede8] transition-colors"
                             title="Delete deck"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           )}
-        </Card>
+        </div>
       )}
 
       {/* -------------------------------------------------------------------
           MODAL: CREATE / EDIT TEST
       -------------------------------------------------------------------- */}
-      <Dialog
+      <ModalDialog
         open={testModalOpen}
         onClose={() => setTestModalOpen(false)}
         title={editingTestId ? "Edit Test" : "Create New SAT Test"}
-        maxWidth="md"
+        description="Configure test metadata, overall duration, and difficulty level."
+        maxWidthClassName="max-w-md"
       >
         <form onSubmit={handleSaveTest} className="space-y-4 pt-2">
-          <Input
-            label="Test Title"
-            required
-            value={testTitle}
-            onChange={(e) => setTestTitle(e.target.value)}
-            placeholder="e.g. SAT Practice Test #3"
-          />
+          <div>
+            <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1.5">
+              Test Title
+            </label>
+            <input
+              type="text"
+              required
+              value={testTitle}
+              onChange={(e) => setTestTitle(e.target.value)}
+              placeholder="e.g. SAT Practice Test #3"
+              className="workbook-input w-full"
+            />
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Input
-                label="Total Time Limit (Minutes)"
+              <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1.5">
+                Time Limit (Mins)
+              </label>
+              <input
                 type="number"
                 required
                 value={testTimeLimit}
                 onChange={(e) => setTestTimeLimit(parseInt(e.target.value, 10))}
+                className="workbook-input w-full"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">
+              <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1.5">
                 Difficulty
               </label>
               <select
                 value={testDifficulty}
                 onChange={(e) => setTestDifficulty(e.target.value)}
-                className="workbook-input"
+                className="workbook-input w-full bg-surface-white"
               >
                 <option value="easy">easy</option>
                 <option value="medium">medium</option>
@@ -837,7 +1015,7 @@ export default function AdminPage() {
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex justify-end gap-2 pt-3 border-t border-border">
             <Button variant="secondary" size="sm" type="button" onClick={() => setTestModalOpen(false)}>
               Cancel
             </Button>
@@ -846,32 +1024,32 @@ export default function AdminPage() {
             </Button>
           </div>
         </form>
-      </Dialog>
+      </ModalDialog>
 
       {/* -------------------------------------------------------------------
           MODAL: CREATE / EDIT QUESTION (Both MCQ & SPR)
       -------------------------------------------------------------------- */}
-      <Dialog
+      <ModalDialog
         open={questionModalOpen}
         onClose={() => setQuestionModalOpen(false)}
         title={editingQuestionId ? "Edit Question" : "Create Question"}
         description="Configure question text, passage, answers, domain, and skill."
-        maxWidth="2xl"
+        maxWidthClassName="max-w-2xl"
       >
-        <form onSubmit={handleSaveQuestion} className="space-y-4 pt-2 max-h-[75vh] overflow-y-auto pr-1">
+        <form onSubmit={handleSaveQuestion} className="space-y-4 pt-2 max-h-[72vh] overflow-y-auto pr-1">
           {/* Question Type Toggle */}
-          <div className="flex items-center gap-3 p-3 rounded-[var(--ui-radius-sm)] bg-[var(--bg-canvas)] border border-[var(--border-subtle)]">
-            <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
+          <div className="flex items-center gap-3 p-3 rounded-[var(--ui-radius-sm)] bg-canvas border border-border">
+            <span className="text-xs font-bold uppercase tracking-wider text-ink-muted">
               Question Type:
             </span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setQType("multiple_choice")}
-                className={`px-3 py-1 rounded text-xs font-bold cursor-pointer ${
+                className={`px-3 py-1 rounded-[var(--ui-radius-sm)] text-xs font-bold cursor-pointer transition-colors ${
                   qType === "multiple_choice"
-                    ? "bg-[var(--accent-brand)] text-[var(--text-on-brand)]"
-                    : "bg-white text-[var(--text-muted)] border border-[var(--border-subtle)]"
+                    ? "bg-brand text-ink-fg brutal-shadow-xs"
+                    : "bg-surface-white text-ink-muted border border-border"
                 }`}
               >
                 Multiple Choice (MCQ)
@@ -879,10 +1057,10 @@ export default function AdminPage() {
               <button
                 type="button"
                 onClick={() => setQType("spr")}
-                className={`px-3 py-1 rounded text-xs font-bold cursor-pointer ${
+                className={`px-3 py-1 rounded-[var(--ui-radius-sm)] text-xs font-bold cursor-pointer transition-colors ${
                   qType === "spr"
-                    ? "bg-[var(--accent-brand)] text-[var(--text-on-brand)]"
-                    : "bg-white text-[var(--text-muted)] border border-[var(--border-subtle)]"
+                    ? "bg-brand text-ink-fg brutal-shadow-xs"
+                    : "bg-surface-white text-ink-muted border border-border"
                 }`}
               >
                 Student Produced Response (SPR)
@@ -892,13 +1070,13 @@ export default function AdminPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">
+              <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1.5">
                 Section
               </label>
               <select
                 value={qSection}
                 onChange={(e) => setQSection(e.target.value)}
-                className="workbook-input"
+                className="workbook-input w-full bg-surface-white"
               >
                 <option value="Reading and Writing">Reading and Writing</option>
                 <option value="Math">Math</option>
@@ -906,13 +1084,13 @@ export default function AdminPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">
+              <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1.5">
                 Module Number
               </label>
               <select
                 value={qModule}
                 onChange={(e) => setQModule(parseInt(e.target.value, 10))}
-                className="workbook-input"
+                className="workbook-input w-full bg-surface-white"
               >
                 <option value={1}>Module 1</option>
                 <option value={2}>Module 2</option>
@@ -921,39 +1099,57 @@ export default function AdminPage() {
           </div>
 
           {/* Passage (optional for R&W) */}
-          <Textarea
-            label="Reading Passage (Optional)"
-            value={qPassage}
-            onChange={(e) => setQPassage(e.target.value)}
-            placeholder="Passage text if this is a reading question..."
-          />
+          <div>
+            <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1.5">
+              Reading Passage (Optional)
+            </label>
+            <textarea
+              rows={3}
+              value={qPassage}
+              onChange={(e) => setQPassage(e.target.value)}
+              placeholder="Passage text if this is a reading question..."
+              className="workbook-input w-full resize-none"
+            />
+          </div>
 
           {/* Question Text */}
-          <Textarea
-            label="Question Prompt / Text"
-            required
-            value={qText}
-            onChange={(e) => setQText(e.target.value)}
-            placeholder="The main question prompt (KaTeX math supported e.g. \( f(x) = x^2 \))..."
-          />
+          <div>
+            <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1.5">
+              Question Prompt / Text
+            </label>
+            <textarea
+              rows={3}
+              required
+              value={qText}
+              onChange={(e) => setQText(e.target.value)}
+              placeholder="The main question prompt (KaTeX math supported e.g. \( f(x) = x^2 \))..."
+              className="workbook-input w-full resize-none"
+            />
+          </div>
 
           {/* Image URL (Optional) */}
-          <Input
-            label="Figure / Graphic Image URL (Optional)"
-            value={qImageUrl}
-            onChange={(e) => setQImageUrl(e.target.value)}
-            placeholder="/demo-figures/fig-xxx.png"
-          />
+          <div>
+            <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1.5">
+              Figure / Graphic Image URL (Optional)
+            </label>
+            <input
+              type="text"
+              value={qImageUrl}
+              onChange={(e) => setQImageUrl(e.target.value)}
+              placeholder="/demo-figures/fig-xxx.png"
+              className="workbook-input w-full"
+            />
+          </div>
 
           {/* Answers based on Type */}
           {qType === "multiple_choice" ? (
-            <div className="space-y-2.5 p-3 rounded-[var(--ui-radius-sm)] bg-[var(--bg-canvas)] border border-[var(--border-subtle)]">
-              <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] block">
-                Choices (A, B, C, D) &amp; Correct Key
+            <div className="space-y-2.5 p-3.5 rounded-[var(--ui-radius-sm)] bg-canvas border border-border">
+              <span className="text-xs font-bold uppercase tracking-wider text-ink-muted block">
+                Choices (A, B, C, D) &amp; Select Correct Answer
               </span>
               {["A", "B", "C", "D"].map((letter, idx) => (
                 <div key={letter} className="flex items-center gap-2">
-                  <span className="w-6 font-bold text-xs text-[var(--text-muted)] text-center">
+                  <span className="w-6 font-mono font-bold text-xs text-ink-muted text-center">
                     {letter}
                   </span>
                   <input
@@ -966,29 +1162,34 @@ export default function AdminPage() {
                       setQChoices(updated);
                     }}
                     placeholder={`Choice ${letter}...`}
-                    className="workbook-input text-xs flex-1"
+                    className="workbook-input text-xs flex-1 bg-surface-white"
                   />
-                  <input
-                    type="radio"
-                    name="correct-answer-radio"
-                    checked={qCorrectAnswer === qChoices[idx] || qCorrectAnswer === letter}
-                    onChange={() => setQCorrectAnswer(qChoices[idx] || letter)}
-                    className="w-4 h-4 text-[var(--accent-brand)]"
-                  />
+                  <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-ink-muted">
+                    <input
+                      type="radio"
+                      name="correct-answer-radio"
+                      checked={qCorrectAnswer === qChoices[idx] || qCorrectAnswer === letter}
+                      onChange={() => setQCorrectAnswer(qChoices[idx] || letter)}
+                      className="w-4 h-4 text-brand focus:ring-brand"
+                    />
+                    <span>Correct</span>
+                  </label>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="p-3 rounded-[var(--ui-radius-sm)] bg-[var(--bg-canvas)] border border-[var(--border-subtle)] space-y-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] block">
+            <div className="p-3.5 rounded-[var(--ui-radius-sm)] bg-canvas border border-border space-y-2">
+              <label className="block text-xs font-bold uppercase tracking-wider text-ink-muted">
                 SPR Accepted Answers (Comma-separated)
-              </span>
-              <Input
+              </label>
+              <input
+                type="text"
                 value={qAcceptedAnswers}
                 onChange={(e) => setQAcceptedAnswers(e.target.value)}
                 placeholder="e.g. 28, 0.5, 1/2"
+                className="workbook-input w-full bg-surface-white"
               />
-              <p className="text-[11px] text-[var(--text-muted)]">
+              <p className="text-[11px] text-ink-muted leading-relaxed">
                 Our OOP question model will automatically validate equivalent fractions and decimals.
               </p>
             </div>
@@ -996,29 +1197,47 @@ export default function AdminPage() {
 
           {/* Domain & Skill */}
           <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Domain"
-              value={qDomain}
-              onChange={(e) => setQDomain(e.target.value)}
-              placeholder="e.g. Algebra"
-            />
-            <Input
-              label="Skill"
-              value={qSkill}
-              onChange={(e) => setQSkill(e.target.value)}
-              placeholder="e.g. Linear equations"
-            />
+            <div>
+              <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1.5">
+                Domain
+              </label>
+              <input
+                type="text"
+                value={qDomain}
+                onChange={(e) => setQDomain(e.target.value)}
+                placeholder="e.g. Algebra"
+                className="workbook-input w-full"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1.5">
+                Skill
+              </label>
+              <input
+                type="text"
+                value={qSkill}
+                onChange={(e) => setQSkill(e.target.value)}
+                placeholder="e.g. Linear equations"
+                className="workbook-input w-full"
+              />
+            </div>
           </div>
 
           {/* Explanation */}
-          <Textarea
-            label="Detailed Explanation"
-            value={qExplanation}
-            onChange={(e) => setQExplanation(e.target.value)}
-            placeholder="Step-by-step breakdown and rationale..."
-          />
+          <div>
+            <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1.5">
+              Detailed Explanation
+            </label>
+            <textarea
+              rows={3}
+              value={qExplanation}
+              onChange={(e) => setQExplanation(e.target.value)}
+              placeholder="Step-by-step breakdown and rationale..."
+              className="workbook-input w-full resize-none"
+            />
+          </div>
 
-          <div className="flex justify-end gap-2 pt-3 border-t border-[var(--border-subtle)]">
+          <div className="flex justify-end gap-2 pt-3 border-t border-border">
             <Button variant="secondary" size="sm" type="button" onClick={() => setQuestionModalOpen(false)}>
               Cancel
             </Button>
@@ -1027,32 +1246,47 @@ export default function AdminPage() {
             </Button>
           </div>
         </form>
-      </Dialog>
+      </ModalDialog>
 
       {/* -------------------------------------------------------------------
           MODAL: CREATE / EDIT SYSTEM VOCAB DECK
       -------------------------------------------------------------------- */}
-      <Dialog
+      <ModalDialog
         open={vocabModalOpen}
         onClose={() => setVocabModalOpen(false)}
         title={editingDeckId ? "Edit System Deck" : "Create System Vocab Deck"}
-        maxWidth="md"
+        description="Configure titles and descriptions for global vocabulary decks."
+        maxWidthClassName="max-w-md"
       >
         <form onSubmit={handleSaveVocabDeck} className="space-y-4 pt-2">
-          <Input
-            label="Deck Title"
-            required
-            value={deckTitle}
-            onChange={(e) => setDeckTitle(e.target.value)}
-            placeholder="e.g. Essential SAT Vocabulary (Core 30)"
-          />
-          <Textarea
-            label="Description"
-            value={deckDesc}
-            onChange={(e) => setDeckDesc(e.target.value)}
-            placeholder="Brief explanation of the deck scope..."
-          />
-          <div className="flex justify-end gap-2 pt-2">
+          <div>
+            <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1.5">
+              Deck Title
+            </label>
+            <input
+              type="text"
+              required
+              value={deckTitle}
+              onChange={(e) => setDeckTitle(e.target.value)}
+              placeholder="e.g. Essential SAT Vocabulary (Core 30)"
+              className="workbook-input w-full"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1.5">
+              Description
+            </label>
+            <textarea
+              rows={3}
+              value={deckDesc}
+              onChange={(e) => setDeckDesc(e.target.value)}
+              placeholder="Brief explanation of the deck scope..."
+              className="workbook-input w-full resize-none"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-border">
             <Button variant="secondary" size="sm" type="button" onClick={() => setVocabModalOpen(false)}>
               Cancel
             </Button>
@@ -1061,7 +1295,37 @@ export default function AdminPage() {
             </Button>
           </div>
         </form>
-      </Dialog>
+      </ModalDialog>
+
+      {/* Delete Test Confirm Dialog */}
+      <ConfirmDialog
+        open={Boolean(testToDelete)}
+        onOpenChange={(open) => !open && setTestToDelete(null)}
+        title="Delete SAT Test"
+        description="Are you sure you want to permanently delete this test and all its questions? This action cannot be undone."
+        confirmLabel="Delete Test"
+        onConfirm={confirmDeleteTest}
+      />
+
+      {/* Delete Question Confirm Dialog */}
+      <ConfirmDialog
+        open={Boolean(questionToDelete)}
+        onOpenChange={(open) => !open && setQuestionToDelete(null)}
+        title="Delete Question"
+        description="Are you sure you want to delete this question from the test? Historical student test attempts referencing this question will remain intact."
+        confirmLabel="Delete Question"
+        onConfirm={confirmDeleteQuestion}
+      />
+
+      {/* Delete Vocab Deck Confirm Dialog */}
+      <ConfirmDialog
+        open={Boolean(vocabDeckToDelete)}
+        onOpenChange={(open) => !open && setVocabDeckToDelete(null)}
+        title="Delete System Vocab Deck"
+        description="Are you sure you want to delete this global system deck? All associated flashcards will be permanently removed."
+        confirmLabel="Delete System Deck"
+        onConfirm={confirmDeleteVocabDeck}
+      />
     </div>
   );
 }

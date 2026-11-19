@@ -10,12 +10,13 @@
 @import "@fontsource/geist-mono/500.css";
 
 /* ---------------------------------------------------------------------------
-   RonanSAT "The Warm Studio" Design System Tokens (SPEC section 4)
+   RonanSAT "The Warm Studio" Design System Tokens (docs/DESIGN.md sections 1-5)
+   Light mode only.
 --------------------------------------------------------------------------- */
 
 :root {
   /* Fonts */
-  --font-workbook-display: "Bricolage Grotesque", -apple-system, sans-serif;
+  --font-workbook-display: "Bricolage Grotesque", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-workbook-body: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-workbook-mono: "Geist Mono", monospace;
 
@@ -46,6 +47,29 @@
   --state-success: #1f9d6b;
   --accent-pink: #ec6a9c;
 
+  /* State Fills & Foreground */
+  --state-info-fill: #2f6feb;
+  --state-danger-fill: #e0592f;
+  --state-success-fill: #1f9d6b;
+  --text-on-state: #ffffff;
+
+  /* Study Ring Scale */
+  --study-ring-low: #ecd28d;
+  --study-ring-mid: #e0b354;
+  --study-ring-high: #7a5310;
+
+  /* Pastel Tint Bank */
+  --pastel-sky: #dbe8fb;
+  --pastel-mint: #d3efdf;
+  --pastel-lavender: #ece4f8;
+  --pastel-peach: #fbe1d3;
+  --pastel-butter: #fbf1cd;
+  --pastel-rose: #fbdae3;
+  --pastel-sage: #e3ecd8;
+  --pastel-aqua: #d3eef1;
+  --pastel-clay: #eee1d6;
+  --pastel-periwinkle: #dcdff7;
+
   /* UI Shape & Radii */
   --ui-radius: 0.625rem;       /* 10px */
   --ui-radius-sm: 0.4375rem;    /* 7px */
@@ -54,11 +78,34 @@
   --ui-scrollbar-size: 8px;
   --app-bar-h: 3.5rem;
 
-  /* Elevation Shadows (Soft & Layered, no hard offsets) */
-  --ui-shadow-xs: 0 1px 2px rgba(28, 25, 23, 0.05);
-  --ui-shadow: 0 1px 3px rgba(28, 25, 23, 0.06), 0 1px 2px rgba(28, 25, 23, 0.04);
-  --ui-shadow-md: 0 4px 6px -1px rgba(28, 25, 23, 0.07), 0 2px 4px -2px rgba(28, 25, 23, 0.05);
-  --ui-shadow-lg: 0 10px 15px -3px rgba(28, 25, 23, 0.08), 0 4px 6px -4px rgba(28, 25, 23, 0.04);
+  /* Shadows — soft, layered, low opacity matching the platform */
+  --shadow-color: rgb(28 25 23);
+  --ui-shadow-xs: 0 1px 2px 0 color-mix(in srgb, var(--shadow-color) 5%, transparent);
+  --ui-shadow:
+    0 1px 2px -1px color-mix(in srgb, var(--shadow-color) 8%, transparent),
+    0 1px 3px 0 color-mix(in srgb, var(--shadow-color) 6%, transparent);
+  --ui-shadow-md:
+    0 2px 4px -2px color-mix(in srgb, var(--shadow-color) 8%, transparent),
+    0 4px 12px -2px color-mix(in srgb, var(--shadow-color) 10%, transparent);
+  --ui-shadow-lg:
+    0 8px 24px -6px color-mix(in srgb, var(--shadow-color) 14%, transparent),
+    0 2px 6px -2px color-mix(in srgb, var(--shadow-color) 8%, transparent);
+
+  --shadow-2xs: 0 1px color-mix(in srgb, var(--shadow-color) 5%, transparent);
+  --shadow-xs: 0 1px 2px 0 color-mix(in srgb, var(--shadow-color) 5%, transparent);
+  --shadow-sm:
+    0 1px 3px 0 color-mix(in srgb, var(--shadow-color) 10%, transparent),
+    0 1px 2px -1px color-mix(in srgb, var(--shadow-color) 10%, transparent);
+  --shadow-md:
+    0 4px 6px -1px color-mix(in srgb, var(--shadow-color) 10%, transparent),
+    0 2px 4px -2px color-mix(in srgb, var(--shadow-color) 10%, transparent);
+  --shadow-lg:
+    0 10px 15px -3px color-mix(in srgb, var(--shadow-color) 10%, transparent),
+    0 4px 6px -4px color-mix(in srgb, var(--shadow-color) 10%, transparent);
+  --shadow-xl:
+    0 20px 25px -5px color-mix(in srgb, var(--shadow-color) 10%, transparent),
+    0 8px 10px -6px color-mix(in srgb, var(--shadow-color) 10%, transparent);
+  --shadow-2xl: 0 25px 50px -12px color-mix(in srgb, var(--shadow-color) 25%, transparent);
 }
 
 @theme inline {
@@ -68,6 +115,7 @@
 
   --color-paper-bg: var(--bg-canvas);
   --color-surface-white: var(--bg-surface);
+  --color-surface: var(--bg-surface);
   --color-surface-raised: var(--bg-raised);
   --color-surface-inset: var(--bg-inset);
   --color-card-label: var(--card-label);
@@ -86,6 +134,31 @@
   --color-info: var(--state-info);
   --color-danger: var(--state-danger);
   --color-success: var(--state-success);
+  --color-accent-1: var(--accent-pink);
+  --color-accent-2: var(--state-info);
+  --color-accent-3: var(--state-danger);
+
+  --color-info-fill: var(--state-info-fill);
+  --color-danger-fill: var(--state-danger-fill);
+  --color-success-fill: var(--state-success-fill);
+  --color-accent-2-fill: var(--state-info-fill);
+  --color-accent-3-fill: var(--state-danger-fill);
+  --color-on-state: var(--text-on-state);
+
+  --color-study-ring-low: var(--study-ring-low);
+  --color-study-ring-mid: var(--study-ring-mid);
+  --color-study-ring-high: var(--study-ring-high);
+
+  --color-pastel-sky: var(--pastel-sky);
+  --color-pastel-mint: var(--pastel-mint);
+  --color-pastel-lavender: var(--pastel-lavender);
+  --color-pastel-peach: var(--pastel-peach);
+  --color-pastel-butter: var(--pastel-butter);
+  --color-pastel-rose: var(--pastel-rose);
+  --color-pastel-sage: var(--pastel-sage);
+  --color-pastel-aqua: var(--pastel-aqua);
+  --color-pastel-clay: var(--pastel-clay);
+  --color-pastel-periwinkle: var(--pastel-periwinkle);
 }
 
 /* ---------------------------------------------------------------------------
@@ -98,6 +171,12 @@ html, body {
   font-family: var(--font-workbook-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Focus styles */
+:focus-visible {
+  outline: 2px solid var(--accent-brand);
+  outline-offset: 2px;
 }
 
 /* ---------------------------------------------------------------------------
@@ -116,6 +195,21 @@ html, body {
   border-radius: var(--ui-radius);
   background: var(--bg-canvas);
   box-shadow: none;
+}
+
+.brutal-shadow-sm,
+.elevation-sm {
+  box-shadow: var(--ui-shadow);
+}
+
+.brutal-shadow,
+.elevation {
+  box-shadow: var(--ui-shadow);
+}
+
+.brutal-shadow-lg,
+.elevation-lg {
+  box-shadow: var(--ui-shadow-lg);
 }
 
 .workbook-button {
@@ -234,7 +328,28 @@ select.workbook-input {
 }
 
 .workbook-press {
-  transition: box-shadow 150ms ease, background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+  transition: box-shadow 150ms ease, background-color 150ms ease, color 150ms ease, border-color 150ms ease, transform 100ms ease;
+}
+
+.workbook-press:active {
+  transform: scale(0.985);
+}
+
+.scheme-only-light {
+  color-scheme: only light;
+}
+
+/* Modal Dialog */
+.workbook-modal-backdrop {
+  background: rgba(28, 25, 23, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.workbook-modal-card {
+  border: var(--ui-border) solid var(--border-subtle);
+  border-radius: var(--ui-radius-lg);
+  background: var(--bg-surface);
+  box-shadow: var(--ui-shadow-lg);
 }
 
 /* Custom Scrollbar */
@@ -294,4 +409,53 @@ select.workbook-input {
   margin: 0.75rem 0;
   overflow-x: auto;
   overflow-y: hidden;
+}
+
+/* Sidebar Nav Icon Motion */
+@keyframes nav-pop {
+  0% { transform: scale(0.75); }
+  60% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+@keyframes nav-wipe {
+  0% { transform: scaleX(0); }
+  100% { transform: scaleX(1); }
+}
+
+@keyframes nav-draw {
+  0% { stroke-dashoffset: 1; }
+  100% { stroke-dashoffset: 0; }
+}
+
+.nav-icon-host-active [data-nav-motion="pop"] {
+  animation: nav-pop 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.nav-icon-host-active [data-nav-motion="wipe"] {
+  transform-origin: left center;
+  animation: nav-wipe 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.nav-icon-host-active [data-nav-motion="draw"] {
+  stroke-dasharray: 1;
+  animation: nav-draw 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.nav-icon-host-active [data-nav-delay="1"] {
+  animation-delay: 60ms;
+}
+
+.nav-icon-host-active [data-nav-delay="2"] {
+  animation-delay: 120ms;
+}
+
+.nav-icon-host-active [data-nav-delay="3"] {
+  animation-delay: 180ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-icon-host-active [data-nav-motion] {
+    animation: none !important;
+  }
 }

@@ -4,10 +4,8 @@ import React, { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import BrandLogo from "@/components/BrandLogo";
-import { Card } from "@/components/ui/Card";
-import { Input } from "@/components/ui/Input";
-import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import api from "@/lib/axios";
 import { API_PATHS } from "@/lib/apiPaths";
 
@@ -81,24 +79,24 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-[var(--bg-canvas)]">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-canvas">
       <div className="w-full max-w-md">
         {/* Brand Logo Header */}
-        <div className="flex flex-col items-center mb-6">
+        <div className="flex flex-col items-center mb-6 text-center">
           <BrandLogo size="lg" />
-          <p className="mt-2 text-sm text-[var(--text-muted)] text-center">
-            The university OOP laboratory platform for Digital SAT practice.
+          <p className="mt-2.5 text-xs text-ink-muted">
+            The studio platform for Digital SAT practice and diagnostics.
           </p>
         </div>
 
         {/* Main Auth Card */}
-        <Card className="shadow-[var(--ui-shadow-md)]">
-          <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-4 mb-6">
+        <div className="workbook-panel p-6 sm:p-8 brutal-shadow-md">
+          <div className="flex items-center justify-between border-b border-border pb-4 mb-6">
             <div>
-              <h2 className="text-xl font-bold text-[var(--text-primary)] font-display">
+              <h2 className="text-xl font-black text-ink-fg font-display tracking-tight">
                 {isLogin ? "Sign in to RonanSAT" : "Create your account"}
               </h2>
-              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+              <p className="text-xs text-ink-muted mt-0.5">
                 {isLogin
                   ? "Enter your credentials to continue"
                   : "Join to practice and track mistakes"}
@@ -116,39 +114,45 @@ export default function AuthPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
               <div>
-                <Input
-                  label="Full Name"
-                  id="name"
+                <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1.5">
+                  Full Name
+                </label>
+                <input
                   type="text"
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Alex Mercer"
+                  className="workbook-input w-full bg-surface-white"
                 />
               </div>
             )}
 
             <div>
-              <Input
-                label="Email Address"
-                id="email"
+              <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1.5">
+                Email Address
+              </label>
+              <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="student@ronansat.com"
+                className="workbook-input w-full bg-surface-white"
               />
             </div>
 
             <div>
-              <Input
-                label="Password"
-                id="password"
+              <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1.5">
+                Password
+              </label>
+              <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••••••"
+                className="workbook-input w-full bg-surface-white"
               />
             </div>
 
@@ -164,43 +168,43 @@ export default function AuthPage() {
           </form>
 
           {/* Toggle Login / Register */}
-          <div className="mt-6 pt-4 border-t border-[var(--border-subtle)] text-center">
+          <div className="mt-6 pt-4 border-t border-border text-center">
             <button
               type="button"
               onClick={() => {
                 setIsLogin(!isLogin);
                 setError("");
               }}
-              className="text-xs font-semibold text-[var(--accent-brand-strong)] hover:underline cursor-pointer"
+              className="text-xs font-semibold text-brand-strong hover:underline cursor-pointer"
             >
               {isLogin
                 ? "Don't have an account? Create one now"
                 : "Already have an account? Sign in here"}
             </button>
           </div>
-        </Card>
+        </div>
 
-        {/* Demo Accounts Quick-Fill Helper (SPEC requirement 0 & 1) */}
-        <div className="mt-4 p-4 rounded-[var(--ui-radius)] border border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-[var(--ui-shadow-xs)]">
-          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2.5 text-center">
+        {/* Demo Accounts Quick-Fill Helper */}
+        <div className="mt-4 p-4 rounded-[var(--ui-radius)] border border-border bg-surface-white brutal-shadow-xs">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-ink-muted mb-2.5 text-center">
             Quick-Fill Demo Credentials
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => handleFillDemo("student@ronansat.com", "StudentPassword123!")}
-              className="p-2.5 rounded-[var(--ui-radius-sm)] border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:border-[var(--accent-brand)] hover:bg-[#faf1de]/50 text-left transition-colors cursor-pointer"
+              className="p-2.5 rounded-[var(--ui-radius-sm)] border border-border bg-canvas hover:border-brand hover:bg-brand-tint/40 text-left transition-colors cursor-pointer workbook-press"
             >
-              <div className="text-xs font-bold text-[var(--text-primary)]">Demo Student</div>
-              <div className="text-[11px] text-[var(--text-muted)] font-mono">student@ronansat.com</div>
+              <div className="text-xs font-bold text-ink-fg">Demo Student</div>
+              <div className="text-[11px] text-ink-muted font-mono">student@ronansat.com</div>
             </button>
             <button
               type="button"
               onClick={() => handleFillDemo("admin@ronansat.com", "AdminPassword123!")}
-              className="p-2.5 rounded-[var(--ui-radius-sm)] border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:border-[var(--accent-brand)] hover:bg-[#faf1de]/50 text-left transition-colors cursor-pointer"
+              className="p-2.5 rounded-[var(--ui-radius-sm)] border border-border bg-canvas hover:border-brand hover:bg-brand-tint/40 text-left transition-colors cursor-pointer workbook-press"
             >
-              <div className="text-xs font-bold text-[var(--text-primary)]">Demo Admin</div>
-              <div className="text-[11px] text-[var(--text-muted)] font-mono">admin@ronansat.com</div>
+              <div className="text-xs font-bold text-ink-fg">Demo Admin</div>
+              <div className="text-[11px] text-ink-muted font-mono">admin@ronansat.com</div>
             </button>
           </div>
         </div>

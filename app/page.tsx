@@ -1,38 +1,34 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import {
   Trophy,
-  Award,
+  Target,
   AlertCircle,
   Sparkles,
   BookOpen,
   ArrowRight,
-  TrendingUp,
-  CheckCircle2,
-  Clock,
   Play,
-  RotateCcw,
+  TrendingUp,
+  Calendar,
 } from "lucide-react";
 import {
   ResponsiveContainer,
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
   CartesianGrid,
-  Area,
-  AreaChart,
 } from "recharts";
 import { Button } from "@/components/ui/Button";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { StatCard } from "@/components/ui/StatCard";
-import { CardSkeleton, TableSkeleton } from "@/components/ui/Skeleton";
-import { EmptyState } from "@/components/ui/EmptyState";
+import { CardSkeleton } from "@/components/ui/Skeleton";
+import { StudyRingProgress } from "@/components/ui/UsageRing";
+import CardHoverPlate from "@/components/ui/CardHoverPlate";
 import api from "@/lib/axios";
 
 interface ScorePoint {
@@ -49,6 +45,8 @@ interface RecentResult {
   createdAt?: string;
   mode?: string;
   isSectional?: boolean;
+  sectionalSubject?: string;
+  sectionalModule?: number;
   sectionBreakdown?: {
     readingAndWriting?: number;
     math?: number;
@@ -57,6 +55,17 @@ interface RecentResult {
     _id?: string;
     title?: string;
   } | string;
+}
+
+function formatResultDate(dateString?: string) {
+  if (!dateString) return "Recently";
+  const d = new Date(dateString);
+  if (isNaN(d.getTime())) return dateString;
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 export default function HomePage() {
@@ -70,45 +79,51 @@ export default function HomePage() {
     testsTaken: 0,
     errorLogsToReview: 0,
     vocabDueCount: 0,
+    vocabTotalCount: 80,
   });
 
   const [recentResults, setRecentResults] = useState<RecentResult[]>([]);
-  const [scoreTrend, setScoreTrend] = useState<ScorePoint[]>([]);
+  const [fullLengthTrend, setFullLengthTrend] = useState<ScorePoint[]>([]);
+  const [allResults, setAllResults] = useState<RecentResult[]>([]);
 
   const fetchHomeData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // 1. Fetch user stats and statistics snapshot
-      const [userStatsRes, statsRes, vocabDueRes, resultsRes] = await Promise.all([
+      const [userStatsRes, statsRes, vocabDueRes, resultsRes, vocabDecksRes] = await Promise.all([
         api.get("/api/user/stats").catch(() => ({ data: {} })),
         api.get("/api/statistics").catch(() => ({ data: {} })),
         api.get("/api/vocab/due").catch(() => ({ data: {} })),
         api.get("/api/results").catch(() => ({ data: {} })),
+        api.get("/api/vocab/decks").catch(() => ({ data: {} })),
       ]);
 
       const userStats = userStatsRes.data?.stats || userStatsRes.data || {};
       const statistics = statsRes.data?.statistics || {};
       const vocabData = vocabDueRes.data || {};
-      const resultsData = resultsRes.data?.results || [];
+      const resultsData: RecentResult[] = resultsRes.data?.results || [];
+      const decks = vocabDecksRes.data?.decks || [];
+      const totalCards = decks.reduce((sum: number, d: any) => sum + (d.totalCards || 0), 0);
 
-      const fullLengthResults = resultsData.filter((r: any) => !r.isSectional && r.mode !== "sectional");
+      setAllResults(resultsData);
+
+      // Filter full length results (totals only, 400-1600 scale)
+      const fullLengthResults = resultsData.filter(
+        (r) => !r.isSectional && r.mode !== "sectional" && (r.score || 0) >= 400
+      );
       const latestFullLength = fullLengthResults.length > 0 ? fullLengthResults[0] : null;
 
       const latestScore =
-        statistics.latestScore ||
         latestFullLength?.score ||
+        statistics.latestScore ||
         (resultsData.length > 0 ? resultsData[0]?.score : 0) ||
         0;
 
       const highestScore =
-        statistics.highestScore ||
-        userStats.highestScore ||
-        (fullLengthResults.length > 0
-          ? Math.max(...fullLengthResults.map((r: any) => r.score || 0))
-          : (resultsData.length > 0 ? resultsData[0]?.score : 0)) ||
-        0;
+        fullLengthResults.length > 0
+          ? Math.max(...fullLengthResults.map((r) => r.score || 0))
+          : statistics.highestScore || userStats.highestScore || 0;
 
       setStats({
         latestScore,
@@ -116,13 +131,25 @@ export default function HomePage() {
         testsTaken: statistics.totalTestsTaken || resultsData.length || 0,
         errorLogsToReview: userStats.errorLogsToReview || 0,
         vocabDueCount: vocabData.dueCount || 0,
+        vocabTotalCount: totalCards > 0 ? totalCards : 80,
       });
 
-      setRecentResults(resultsData.slice(0, 3));
+      setRecentResults(resultsData.slice(0, 4));
 
-      // Build score trend (full-length only, 400-1600 scale)
-      if (statistics.scoreTrend && statistics.scoreTrend.length > 0) {
-        setScoreTrend(
+      // Build full-length trend points in chronological order
+      if (fullLengthResults.length > 0) {
+        const trend = [...fullLengthResults]
+          .reverse()
+          .map((r) => ({
+            date: r.createdAt ? formatResultDate(r.createdAt).slice(0, 6) : r.date?.slice(5, 10) || "",
+            score: r.score || 0,
+            testTitle:
+              typeof r.testId === "object" ? r.testId?.title : "SAT Full-Length",
+            mode: "full_length",
+          }));
+        setFullLengthTrend(trend);
+      } else if (statistics.scoreTrend && statistics.scoreTrend.length > 0) {
+        setFullLengthTrend(
           statistics.scoreTrend.map((pt: any) => ({
             date: pt.date ? pt.date.slice(5) : "",
             score: pt.score,
@@ -130,20 +157,6 @@ export default function HomePage() {
             mode: pt.mode,
           }))
         );
-      } else if (fullLengthResults.length > 0) {
-        const trend = [...fullLengthResults]
-          .reverse()
-          .filter((r: any) => (r.score || 0) >= 400)
-          .map((r: any) => ({
-            date: r.date ? r.date.slice(5, 10) : "",
-            score: r.score,
-            testTitle:
-              (typeof r.testId === "object" ? r.testId?.title : null) ||
-              r.testTitle ||
-              "SAT Practice",
-            mode: r.mode,
-          }));
-        setScoreTrend(trend);
       }
     } catch (err: any) {
       console.error("Error loading home dashboard:", err);
@@ -161,6 +174,59 @@ export default function HomePage() {
     }
   }, [session, status]);
 
+  // Compute Weekly Study Bars from recent attempts (last 7 days)
+  const weeklyStudyBars = useMemo(() => {
+    const days: { label: string; dateKey: string; count: number; isToday: boolean }[] = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const dayLabel = d.toLocaleDateString("en-US", { weekday: "short" });
+      const dateKey = d.toISOString().slice(0, 10);
+      days.push({
+        label: dayLabel,
+        dateKey,
+        count: 0,
+        isToday: i === 0,
+      });
+    }
+
+    allResults.forEach((res) => {
+      const dStr = res.createdAt || res.date;
+      if (!dStr) return;
+      const dKey = new Date(dStr).toISOString().slice(0, 10);
+      const match = days.find((day) => day.dateKey === dKey);
+      if (match) {
+        match.count += 1;
+      }
+    });
+
+    const maxCount = Math.max(...days.map((d) => d.count), 1);
+    return { days, maxCount };
+  }, [allResults]);
+
+  // Score change calculation
+  const scoreChange = useMemo(() => {
+    if (fullLengthTrend.length >= 2) {
+      const first = fullLengthTrend[0].score;
+      const last = fullLengthTrend[fullLengthTrend.length - 1].score;
+      return last - first;
+    }
+    return 0;
+  }, [fullLengthTrend]);
+
+  // Current formatted date
+  const todayFormatted = useMemo(() => {
+    return new Date().toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  }, []);
+
   // -------------------------------------------------------------------------
   // Logged Out Landing View
   // -------------------------------------------------------------------------
@@ -170,13 +236,12 @@ export default function HomePage() {
         <Badge variant="brand" className="mb-4">
           University OOP Laboratory Project · Digital SAT Suite
         </Badge>
-        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-[var(--text-primary)] font-display max-w-3xl leading-tight">
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-ink-fg font-display max-w-3xl leading-tight">
           Master the Digital SAT with precision Object-Oriented software.
         </h1>
-        <p className="mt-4 text-base sm:text-lg text-[var(--text-muted)] max-w-2xl leading-relaxed">
-          RonanSAT provides authentic Bluebook-style practice with full-length modular timing,
-          deduplicated error logs with inline retries, Leitner spaced-repetition vocabulary,
-          and robust analytics.
+        <p className="mt-4 text-base sm:text-lg text-ink-muted max-w-2xl leading-relaxed">
+          RonanSAT provides authentic Bluebook-style practice with modular timing, KaTeX LaTeX math,
+          deduplicated error logs with inline retries, and Leitner spaced-repetition vocabulary.
         </p>
 
         <div className="mt-8 flex flex-col sm:flex-row items-center gap-3">
@@ -195,44 +260,44 @@ export default function HomePage() {
 
         {/* Feature Highlights Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16 max-w-5xl w-full text-left">
-          <Card>
-            <div className="w-10 h-10 rounded-[var(--ui-radius-sm)] bg-[var(--accent-brand-tint)] text-[var(--accent-brand-strong)] flex items-center justify-center font-bold mb-3">
+          <div className="workbook-panel p-6">
+            <div className="w-10 h-10 rounded-[var(--ui-radius-sm)] bg-brand-tint text-brand-strong flex items-center justify-center font-bold mb-3 border border-[#ecd49d]">
               <BookOpen className="w-5 h-5" />
             </div>
-            <h3 className="text-base font-bold text-[var(--text-primary)]">
+            <h3 className="text-base font-bold text-ink-fg font-display">
               Timed Modular Practice
             </h3>
-            <p className="mt-1 text-xs text-[var(--text-muted)] leading-normal">
+            <p className="mt-1 text-xs text-ink-muted leading-relaxed">
               Full-length 4-module SAT tests and sectional drills with integrated KaTeX LaTeX,
               Desmos graphing calculator, and SPR answer equivalence.
             </p>
-          </Card>
+          </div>
 
-          <Card>
-            <div className="w-10 h-10 rounded-[var(--ui-radius-sm)] bg-[#fdede8] text-[var(--state-danger)] flex items-center justify-center font-bold mb-3">
+          <div className="workbook-panel p-6">
+            <div className="w-10 h-10 rounded-[var(--ui-radius-sm)] bg-[#fdede8] text-danger flex items-center justify-center font-bold mb-3 border border-[#f8c4b4]">
               <AlertCircle className="w-5 h-5" />
             </div>
-            <h3 className="text-base font-bold text-[var(--text-primary)]">
+            <h3 className="text-base font-bold text-ink-fg font-display">
               Deduplicated Error Log
             </h3>
-            <p className="mt-1 text-xs text-[var(--text-muted)] leading-normal">
-              Every missed or omitted question is tracked with reason classification, student
-              notes, and immediate inline retry validation.
+            <p className="mt-1 text-xs text-ink-muted leading-relaxed">
+              Every missed question is tracked with reason classification, student notes, and
+              immediate inline retry validation.
             </p>
-          </Card>
+          </div>
 
-          <Card>
-            <div className="w-10 h-10 rounded-[var(--ui-radius-sm)] bg-[#e8f7f0] text-[var(--state-success)] flex items-center justify-center font-bold mb-3">
+          <div className="workbook-panel p-6">
+            <div className="w-10 h-10 rounded-[var(--ui-radius-sm)] bg-[#e8f7f0] text-success flex items-center justify-center font-bold mb-3 border border-[#b2e5ce]">
               <Sparkles className="w-5 h-5" />
             </div>
-            <h3 className="text-base font-bold text-[var(--text-primary)]">
+            <h3 className="text-base font-bold text-ink-fg font-display">
               Leitner Spaced Repetition
             </h3>
-            <p className="mt-1 text-xs text-[var(--text-muted)] leading-normal">
-              5-box Leitner scheduling with standard rating grades (Again, Hard, Good, Easy)
-              to retain essential SAT high-frequency words.
+            <p className="mt-1 text-xs text-ink-muted leading-relaxed">
+              5-box Leitner scheduling with standard grades (Again, Hard, Good, Easy) to retain
+              essential SAT high-frequency words.
             </p>
-          </Card>
+          </div>
         </div>
       </div>
     );
@@ -246,11 +311,12 @@ export default function HomePage() {
       {/* Top Greeting Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[var(--text-primary)] font-display">
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-ink-fg font-display">
             Welcome back, {session?.user?.name || "Student"}
           </h1>
-          <p className="mt-1 text-sm text-[var(--text-muted)]">
-            Here is your SAT preparation overview and today&apos;s recommended tasks.
+          <p className="mt-1 text-xs sm:text-sm text-ink-muted flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5" />
+            <span>{todayFormatted}</span>
           </p>
         </div>
 
@@ -262,7 +328,7 @@ export default function HomePage() {
         </Link>
       </div>
 
-      {/* Error Banner if any */}
+      {/* Error Banner */}
       {error && (
         <div className="p-4 rounded-[var(--ui-radius)] bg-[#fdede8] border border-[#f8c4b4] text-[#ab3d19] text-sm flex items-center justify-between">
           <span>{error}</span>
@@ -283,18 +349,6 @@ export default function HomePage() {
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
-            label="Latest Score"
-            value={stats.latestScore > 0 ? stats.latestScore : "—"}
-            sublabel={
-              stats.latestScore >= 400
-                ? "Full-Length · 400-1600"
-                : stats.latestScore >= 200
-                ? "Sectional · 200-800"
-                : "No attempts yet"
-            }
-            icon={<Award className="w-4 h-4" />}
-          />
-          <StatCard
             label="Highest Score"
             value={stats.highestScore > 0 ? stats.highestScore : "—"}
             sublabel={
@@ -302,46 +356,52 @@ export default function HomePage() {
                 ? "Full-Length · 400-1600"
                 : stats.testsTaken > 0
                 ? `Across ${stats.testsTaken} tests taken`
-                : "Take first test"
+                : "Take your first test"
             }
             icon={<Trophy className="w-4 h-4" />}
           />
-          <Link href="/error-log">
+          <StatCard
+            label="Tests Completed"
+            value={stats.testsTaken}
+            sublabel="Full-length & Sectional"
+            icon={<Target className="w-4 h-4" />}
+          />
+          <Link href="/error-log" className="block">
             <StatCard
               label="Mistakes to Review"
               value={stats.errorLogsToReview}
               sublabel="In your Error Log"
               icon={<AlertCircle className="w-4 h-4" />}
-              className="hover:border-[var(--state-danger)]"
+              className="hover:border-danger"
             />
           </Link>
-          <Link href="/vocab">
+          <Link href="/vocab" className="block">
             <StatCard
               label="Vocab Due Today"
               value={stats.vocabDueCount}
               sublabel="Cards in Leitner boxes"
               icon={<Sparkles className="w-4 h-4" />}
-              className="hover:border-[var(--accent-brand)]"
+              className="hover:border-brand"
             />
           </Link>
         </div>
       )}
 
-      {/* CTA Practice Banner + Sparkline Row */}
+      {/* Active Session & Progress Ring Strip */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Practice Hero Card */}
-        <Card className="lg:col-span-2 flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-[var(--bg-surface)] to-[var(--accent-brand-tint)]/25">
+        <div className="lg:col-span-2 workbook-panel p-6 flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-surface-white to-brand-tint/30">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <Badge variant="brand">Active Session</Badge>
-              <span className="text-xs text-[var(--text-muted)] font-medium">Digital SAT Prep</span>
+              <Badge variant="brand">Practice Hub</Badge>
+              <span className="text-xs text-ink-muted font-medium">Digital SAT Prep</span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)] font-display">
+            <h2 className="text-xl sm:text-2xl font-black text-ink-fg font-display tracking-tight">
               Ready for your next full-length exam?
             </h2>
-            <p className="mt-2 text-sm text-[var(--text-muted)] max-w-xl leading-relaxed">
-              Experience the exact test day environment: 4 timed modules (2 Reading &amp; Writing,
-              2 Math) with built-in Desmos calculator and automated scoring.
+            <p className="mt-2 text-xs sm:text-sm text-ink-muted max-w-xl leading-relaxed">
+              Experience authentic test day conditions: 4 timed modules (2 Reading &amp; Writing,
+              2 Math) with built-in Desmos graphing calculator, KaTeX equations, and automated scoring.
             </p>
           </div>
 
@@ -359,174 +419,279 @@ export default function HomePage() {
             </Link>
             <Link href="/vocab">
               <Button variant="ghost" size="md">
-                Review Vocab ({stats.vocabDueCount})
+                Review Vocab ({stats.vocabDueCount} due)
               </Button>
             </Link>
           </div>
-        </Card>
+        </div>
 
-        {/* Score Trend Sparkline Card */}
-        <Card className="flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                Score Trajectory
-              </span>
-              <TrendingUp className="w-4 h-4 text-[var(--accent-brand-strong)]" />
-            </div>
-            <h3 className="text-base font-bold text-[var(--text-primary)]">Score Progression</h3>
-            <p className="text-xs text-[var(--text-muted)]">Past attempts over time</p>
+        {/* Study Ring Progress Card */}
+        <div className="workbook-panel p-6 flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
+            <span className="text-[0.68rem] font-bold uppercase tracking-[0.06em] text-ink-muted">
+              Today&apos;s Memory Retention
+            </span>
+            <Sparkles className="w-4 h-4 text-brand-strong" />
           </div>
 
-          <div className="h-36 w-full mt-4">
-            {scoreTrend.length >= 2 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={scoreTrend} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="scoreGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--accent-brand)" stopOpacity={0.35} />
-                      <stop offset="95%" stopColor="var(--accent-brand)" stopOpacity={0.0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e7e3dd" vertical={false} />
-                  <XAxis dataKey="date" stroke="#78716c" fontSize={10} tickLine={false} />
-                  <YAxis domain={["dataMin - 50", "dataMax + 50"]} stroke="#78716c" fontSize={10} tickLine={false} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "var(--bg-surface)",
-                      borderColor: "var(--border-subtle)",
-                      borderRadius: "var(--ui-radius-sm)",
-                      fontSize: "12px",
-                      boxShadow: "var(--ui-shadow)",
-                    }}
-                    formatter={(val: any) => [`${val} pts`, "Score"]}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="score"
-                    stroke="var(--accent-brand-strong)"
-                    strokeWidth={2.5}
-                    fillOpacity={1}
-                    fill="url(#scoreGrad)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+          <StudyRingProgress
+            completed={Math.max(0, stats.vocabTotalCount - stats.vocabDueCount)}
+            total={stats.vocabTotalCount}
+            label="Vocab Cards Retained"
+            sublabel="Leitner spaced repetition progress"
+            size={110}
+          />
+
+          <div className="mt-4 pt-3 border-t border-border flex items-center justify-between text-xs">
+            <span className="text-ink-muted">{stats.vocabDueCount} cards due for review</span>
+            <Link href="/vocab" className="font-bold text-brand-strong hover:underline flex items-center gap-1">
+              <span>Study Now</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Improvement Trend Panel & Weekly Study Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Improvement Trend Panel (Full-Length Totals Only) */}
+        <section className="lg:col-span-2 workbook-panel overflow-hidden">
+          <div className="border-b border-border-strong bg-paper-bg px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-display text-xl sm:text-2xl font-black tracking-tight text-ink-fg">
+                Improvement Trend
+              </h2>
+              <p className="mt-0.5 text-xs text-ink-muted">
+                Full-length practice test score trajectory (400–1600 scale)
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs font-bold text-brand-strong">
+              <TrendingUp className="w-4 h-4" />
+              <span>Full-Length Only</span>
+            </div>
+          </div>
+
+          {/* Metric Sub-header Strip */}
+          <div className="grid grid-cols-3 border-b border-border-strong bg-surface-white px-5 py-3 text-center divide-x divide-border">
+            <div>
+              <p className="text-[0.62rem] font-bold uppercase tracking-[0.08em] text-ink-muted">
+                Score Change
+              </p>
+              <p
+                className={`mt-1 font-display text-xl sm:text-2xl font-black tabular-nums ${
+                  scoreChange > 0 ? "text-success" : scoreChange < 0 ? "text-danger" : "text-ink-fg"
+                }`}
+              >
+                {scoreChange > 0 ? `+${scoreChange}` : scoreChange || "0"}
+              </p>
+            </div>
+            <div>
+              <p className="text-[0.62rem] font-bold uppercase tracking-[0.08em] text-ink-muted">
+                Latest Score
+              </p>
+              <p className="mt-1 font-display text-xl sm:text-2xl font-black tabular-nums text-ink-fg">
+                {stats.latestScore > 0 ? stats.latestScore : "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-[0.62rem] font-bold uppercase tracking-[0.08em] text-ink-muted">
+                Full Tests
+              </p>
+              <p className="mt-1 font-display text-xl sm:text-2xl font-black tabular-nums text-ink-fg">
+                {fullLengthTrend.length}
+              </p>
+            </div>
+          </div>
+
+          {/* Recharts Area Chart */}
+          <div className="p-4 sm:p-5 bg-surface-white">
+            {fullLengthTrend.length >= 2 ? (
+              <div className="h-52 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={fullLengthTrend}
+                    margin={{ top: 10, right: 12, left: -20, bottom: 0 }}
+                  >
+                    <defs>
+                      <linearGradient id="homeScoreGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="var(--color-brand)" stopOpacity={0.4} />
+                        <stop offset="100%" stopColor="var(--color-brand)" stopOpacity={0.03} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid
+                      stroke="var(--color-ink-fg)"
+                      strokeOpacity={0.07}
+                      vertical={false}
+                    />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 10, fontWeight: 600, fill: "var(--color-ink-muted)" }}
+                      tickLine={false}
+                      axisLine={{ stroke: "var(--color-border)" }}
+                    />
+                    <YAxis
+                      domain={[400, 1600]}
+                      ticks={[400, 800, 1200, 1600]}
+                      tick={{ fontSize: 10, fontWeight: 600, fill: "var(--color-ink-muted)" }}
+                      tickLine={false}
+                      axisLine={{ stroke: "var(--color-border)" }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "var(--color-surface-white)",
+                        borderColor: "var(--color-border)",
+                        borderRadius: "var(--ui-radius-sm)",
+                        fontSize: "12px",
+                        boxShadow: "var(--ui-shadow)",
+                        fontWeight: 600,
+                      }}
+                      formatter={(val: any) => [`${val} / 1600`, "Scaled Score"]}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="score"
+                      stroke="var(--color-brand-strong)"
+                      strokeWidth={2.5}
+                      fillOpacity={1}
+                      fill="url(#homeScoreGrad)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
             ) : (
-              <div className="h-full flex flex-col items-center justify-center text-center p-3 rounded-[var(--ui-radius-sm)] bg-[var(--bg-canvas)]">
-                <TrendingUp className="w-6 h-6 text-[var(--text-muted)] mb-1" />
-                <p className="text-xs text-[var(--text-muted)] font-medium">
-                  Take at least 2 tests to render trend sparkline
+              <div className="h-44 flex flex-col items-center justify-center text-center p-4 rounded-[var(--ui-radius-sm)] bg-paper-bg">
+                <TrendingUp className="w-8 h-8 text-ink-muted mb-2" />
+                <p className="text-xs font-semibold text-ink-muted">
+                  Complete at least two full-length SAT exams to display progression curve.
                 </p>
               </div>
             )}
           </div>
-        </Card>
+        </section>
+
+        {/* Weekly Study Activity Bars */}
+        <section className="workbook-panel overflow-hidden flex flex-col justify-between">
+          <div className="flex items-center justify-between border-b border-border-strong bg-paper-bg px-5 py-4">
+            <h2 className="font-display text-lg font-black tracking-tight text-ink-fg">
+              Weekly Activity
+            </h2>
+            <span className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">
+              Last 7 Days
+            </span>
+          </div>
+
+          <div className="p-5 flex-1 flex flex-col justify-end">
+            <div className="flex items-end justify-between gap-2 h-36 pt-4">
+              {weeklyStudyBars.days.map((day) => {
+                const ratio = day.count / weeklyStudyBars.maxCount;
+                const heightPct = day.count > 0 ? Math.max(ratio * 100, 15) : 6;
+                return (
+                  <div key={day.dateKey} className="flex flex-1 flex-col items-center gap-2">
+                    <span className="text-[10px] font-bold tabular-nums text-ink-muted h-3">
+                      {day.count > 0 ? `${day.count}t` : ""}
+                    </span>
+                    <div className="flex h-24 w-full items-end justify-center">
+                      <div
+                        className={`w-full max-w-[28px] rounded-t-sm border border-border transition-all duration-500 ${
+                          day.count > 0
+                            ? "bg-brand scheme-only-light brutal-shadow-sm"
+                            : "bg-paper-bg"
+                        }`}
+                        style={{ height: `${heightPct}%` }}
+                      />
+                    </div>
+                    <span
+                      className={`text-[11px] font-bold uppercase tracking-[0.06em] ${
+                        day.isToday ? "text-ink-fg" : "text-ink-muted"
+                      }`}
+                    >
+                      {day.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="mt-4 pt-3 border-t border-border text-[11px] text-ink-muted text-center">
+              Attempts logged across all practice sections
+            </p>
+          </div>
+        </section>
       </div>
 
       {/* Recent Results Section */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg sm:text-xl font-bold text-[var(--text-primary)] font-display">
-              Recent Test Results
+      <section className="workbook-panel overflow-hidden">
+        <div className="border-b border-border-strong bg-paper-bg px-5 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <h2 className="font-display text-xl font-black tracking-tight text-ink-fg">
+              Recent Work
             </h2>
             <Badge variant="muted">{recentResults.length}</Badge>
           </div>
           <Link
             href="/results"
-            className="text-xs font-semibold text-[var(--accent-brand-strong)] hover:underline flex items-center gap-1"
+            className="text-xs font-bold text-brand-strong hover:underline flex items-center gap-1"
           >
-            <span>View all past results</span>
+            <span>View All Results</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
-        {loading ? (
-          <TableSkeleton rows={3} />
-        ) : recentResults.length === 0 ? (
-          <EmptyState
-            icon={<BookOpen className="w-6 h-6" />}
-            title="No past results yet"
-            description="Take your first practice test to evaluate your performance across Reading, Writing, and Math."
-            action={
-              <Link href="/practice">
-                <Button variant="primary" size="sm">
-                  Start Practice Test
-                </Button>
-              </Link>
-            }
-          />
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {recentResults.map((result: any) => {
-              const testTitle =
-                (typeof result.testId === "object" ? result.testId?.title : null) ||
-                result.testTitle ||
-                "Official SAT Practice Test";
-              const isSectional = result.isSectional || result.mode === "sectional";
-              const scoreVal = isSectional
-                ? Math.max(200, result.score ?? 200)
-                : Math.max(400, result.score ?? 400);
-              const dateStr = result.date || result.createdAt || "";
-              const formattedDate = dateStr ? new Date(dateStr).toLocaleDateString() : "Recent";
+        <div className="p-4 sm:p-5">
+          {recentResults.length === 0 ? (
+            <div className="rounded-[var(--ui-radius-sm)] border border-border bg-paper-bg p-8 text-center text-sm text-ink-muted">
+              Complete your first practice test to start your visible results trail.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {recentResults.map((result) => {
+                const title =
+                  typeof result.testId === "object"
+                    ? result.testId?.title
+                    : result.isSectional
+                    ? `${result.sectionalSubject || "Sectional"} (Module ${result.sectionalModule || 1})`
+                    : "Digital SAT Practice Test";
 
-              return (
-                <Card
-                  key={result._id}
-                  className="flex flex-col justify-between hover:border-[var(--accent-brand)] transition-colors duration-150"
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <Badge variant={isSectional ? "info" : "brand"} size="sm">
-                        {isSectional ? "Sectional" : "Full-Length"}
-                      </Badge>
-                      <span className="text-[11px] text-[var(--text-muted)] flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {formattedDate}
-                      </span>
-                    </div>
+                const isSectional = result.isSectional || result.mode === "sectional";
 
-                    <h3 className="font-bold text-sm text-[var(--text-primary)] line-clamp-1">
-                      {testTitle}
-                    </h3>
-
-                    {isSectional && result.sectionalSubject && (
-                      <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
-                        {result.sectionalSubject} · Module {result.sectionalModule || 1}
-                      </p>
-                    )}
-
-                    <div className="mt-3 flex items-baseline gap-2">
-                      <span className="text-2xl font-extrabold text-[var(--text-primary)]">
-                        {scoreVal}
-                      </span>
-                      <span className="text-xs text-[var(--text-muted)]">
-                        {isSectional ? "/ 800 section" : "/ 1600 total"}
-                      </span>
-                    </div>
-
-                    {result.sectionBreakdown && !isSectional && (
-                      <div className="mt-2.5 flex items-center gap-3 text-xs text-[var(--text-muted)] pt-2 border-t border-[var(--border-subtle)]">
-                        <span>R&amp;W: <strong className="text-[var(--text-primary)]">{result.sectionBreakdown.readingAndWriting || 0}</strong></span>
-                        <span>Math: <strong className="text-[var(--text-primary)]">{result.sectionBreakdown.math || 0}</strong></span>
+                return (
+                  <Link
+                    key={result._id}
+                    href={`/results/${result._id}`}
+                    className="group relative flex items-center justify-between gap-4 rounded-[var(--ui-radius-sm)] border border-border bg-surface-white p-4 transition-all duration-150 hover:border-brand shadow-[var(--ui-shadow-xs)]"
+                  >
+                    <CardHoverPlate />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant={isSectional ? "info" : "brand"} size="sm">
+                          {isSectional ? "Sectional" : "Full-Length"}
+                        </Badge>
+                        <span className="text-[11px] text-ink-muted">
+                          {formatResultDate(result.createdAt || result.date)}
+                        </span>
                       </div>
-                    )}
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-[var(--border-subtle)]">
-                    <Link href={`/results/${result._id}`} className="block">
-                      <Button variant="secondary" size="sm" className="w-full">
-                        <span>Review Questions</span>
-                        <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                      </Button>
-                    </Link>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                      <p className="text-sm font-bold text-ink-fg truncate">{title}</p>
+                      {result.sectionBreakdown && !isSectional && (
+                        <p className="text-[11px] text-ink-muted mt-1 font-mono">
+                          R&amp;W {result.sectionBreakdown.readingAndWriting || "—"} · Math{" "}
+                          {result.sectionBreakdown.math || "—"}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-ink-muted block">
+                        Score
+                      </span>
+                      <span className="font-display text-2xl sm:text-3xl font-black tracking-tight text-ink-fg tabular-nums leading-none">
+                        {result.score || 0}
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

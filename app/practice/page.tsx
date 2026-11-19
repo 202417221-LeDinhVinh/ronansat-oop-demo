@@ -1,25 +1,22 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   BookOpen,
   Clock,
-  HelpCircle,
   Play,
-  Target,
-  Layers,
   ArrowRight,
-  ShieldCheck,
-  CheckCircle2,
+  Sliders,
 } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { Dialog } from "@/components/ui/Dialog";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { PillToggleGroup } from "@/components/ui/PillToggleGroup";
+import { SearchControl } from "@/components/ui/SearchControl";
+import { ModalDialog } from "@/components/ui/ModalDialog";
+import CardHoverPlate from "@/components/ui/CardHoverPlate";
 import api from "@/lib/axios";
 
 interface SectionInfo {
@@ -39,11 +36,17 @@ interface TestItem {
   createdAt?: string;
 }
 
+type FilterScope = "all" | "full_length" | "reading_writing" | "math";
+
 export default function PracticeLibraryPage() {
   const router = useRouter();
   const [tests, setTests] = useState<TestItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Search & Filters
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterScope, setFilterScope] = useState<FilterScope>("all");
 
   // Sectional Modal State
   const [selectedTest, setSelectedTest] = useState<TestItem | null>(null);
@@ -112,14 +115,70 @@ export default function PracticeLibraryPage() {
     }
   };
 
+  // Filtered test items
+  const filteredTests = useMemo(() => {
+    return tests.filter((test) => {
+      const matchesSearch =
+        !searchQuery.trim() ||
+        test.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (test.difficulty && test.difficulty.toLowerCase().includes(searchQuery.toLowerCase()));
+
+      if (!matchesSearch) return false;
+
+      if (filterScope === "all") return true;
+      if (filterScope === "full_length") return true;
+      if (filterScope === "reading_writing") {
+        return (test.sections || []).some((s) => s.name.toLowerCase().includes("reading"));
+      }
+      if (filterScope === "math") {
+        return (test.sections || []).some((s) => s.name.toLowerCase().includes("math"));
+      }
+      return true;
+    });
+  }, [tests, searchQuery, filterScope]);
+
   return (
     <div className="space-y-6 sm:space-y-8">
-      {/* Page Header */}
-      <PageHeader
-        title="SAT Practice Library"
-        description="Official Digital SAT practice tests with full-length modular timing or targeted sectional drills."
-        badge={<Badge variant="brand">{tests.length} Official Tests</Badge>}
-      />
+      {/* Platform-Style Library Header */}
+      <div className="overflow-hidden rounded-[var(--ui-radius)] border border-border bg-surface-white shadow-[var(--ui-shadow)]">
+        <div className="border-b border-border-strong bg-paper-bg px-5 py-5 sm:px-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <h1 className="font-display text-2xl md:text-3xl font-black tracking-tight text-ink-fg">
+                  SAT Practice Library
+                </h1>
+                <Badge variant="brand">{tests.length} Official Exams</Badge>
+              </div>
+              <p className="mt-1 text-xs sm:text-sm text-ink-muted max-w-3xl leading-relaxed">
+                Official Digital SAT practice tests with full-length modular timing or targeted
+                sectional drills with KaTeX and Desmos calculator support.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Toolbar: Search + Filter Pills */}
+        <div className="px-5 py-3.5 bg-surface-white flex flex-wrap items-center justify-between gap-3 border-t border-border">
+          <PillToggleGroup<FilterScope>
+            value={filterScope}
+            onChange={(next) => setFilterScope(next)}
+            ariaLabel="Test type filters"
+            options={[
+              { value: "all", label: "All Tests" },
+              { value: "full_length", label: "Full-Length" },
+              { value: "reading_writing", label: "Reading & Writing" },
+              { value: "math", label: "Math" },
+            ]}
+          />
+
+          <SearchControl
+            query={searchQuery}
+            onQueryChange={setSearchQuery}
+            placeholder="Search tests..."
+          />
+        </div>
+      </div>
 
       {error && (
         <div className="p-4 rounded-[var(--ui-radius)] bg-[#fdede8] border border-[#f8c4b4] text-[#ab3d19] text-sm flex items-center justify-between">
@@ -135,15 +194,26 @@ export default function PracticeLibraryPage() {
           <CardSkeleton />
           <CardSkeleton />
         </div>
-      ) : tests.length === 0 ? (
+      ) : filteredTests.length === 0 ? (
         <EmptyState
           icon={<BookOpen className="w-8 h-8" />}
-          title="No practice tests available"
-          description="The test database currently has no practice tests. Please seed the database or check back later."
+          title="No matching practice tests"
+          description={
+            searchQuery
+              ? `No tests found matching "${searchQuery}". Try clearing your search.`
+              : "The test database currently has no practice tests in this category."
+          }
+          action={
+            searchQuery ? (
+              <Button variant="secondary" size="sm" onClick={() => setSearchQuery("")}>
+                Clear Search
+              </Button>
+            ) : undefined
+          }
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {tests.map((test) => {
+          {filteredTests.map((test) => {
             const sections = test.sections || [
               { name: "Reading and Writing", module: 1, questionsCount: 27, timeLimit: 32 },
               { name: "Reading and Writing", module: 2, questionsCount: 27, timeLimit: 32 },
@@ -157,161 +227,162 @@ export default function PracticeLibraryPage() {
               134;
 
             return (
-              <Card
+              <div
                 key={test._id}
-                className="flex flex-col justify-between hover:border-[var(--accent-brand)] transition-all duration-150"
+                className="group relative workbook-panel overflow-hidden flex flex-col justify-between hover:border-brand transition-all duration-200"
               >
+                <CardHoverPlate />
+
                 <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <Badge variant="brand" size="sm">
-                      Official SAT
-                    </Badge>
-                    <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] font-medium">
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>{totalMinutes} mins total</span>
+                  {/* Cover-style card header */}
+                  <div className="border-b border-border-strong bg-gradient-to-r from-brand-tint/50 via-paper-bg to-brand-tint/30 px-5 py-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="brand" size="sm">
+                          Official SAT
+                        </Badge>
+                        <span className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">
+                          {test.questionsCount || 98} questions
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs text-ink-muted font-semibold">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>{totalMinutes}m</span>
+                      </div>
                     </div>
+
+                    <h2 className="text-xl font-black text-ink-fg font-display tracking-tight">
+                      {test.title}
+                    </h2>
                   </div>
 
-                  <h2 className="text-xl font-bold text-[var(--text-primary)] font-display">
-                    {test.title}
-                  </h2>
-                  <p className="mt-1 text-xs text-[var(--text-muted)]">
-                    Standard 4-module test containing {test.questionsCount || 98} questions. Includes
-                    KaTeX math rendering, passage readers, and SPR questions.
-                  </p>
+                  <div className="p-5 space-y-4">
+                    <p className="text-xs text-ink-muted leading-relaxed">
+                      Complete 4-module test with adaptive difficulty, KaTeX equation rendering,
+                      Bluebook-standard navigation, and Desmos calculator for Math.
+                    </p>
 
-                  {/* Section Breakdown Pills */}
-                  <div className="mt-4 pt-4 border-t border-[var(--border-subtle)] space-y-2">
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] block">
-                      Module Schedule
-                    </span>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="p-2 rounded-[var(--ui-radius-sm)] bg-[var(--bg-canvas)] border border-[var(--border-subtle)]">
-                        <p className="font-semibold text-[var(--text-primary)]">Reading &amp; Writing</p>
-                        <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
-                          2 Modules · 54 Questions · 64m
-                        </p>
-                      </div>
-                      <div className="p-2 rounded-[var(--ui-radius-sm)] bg-[var(--bg-canvas)] border border-[var(--border-subtle)]">
-                        <p className="font-semibold text-[var(--text-primary)]">Math (Desmos)</p>
-                        <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
-                          2 Modules · 44 Questions · 70m
-                        </p>
+                    {/* Module Schedule Chips */}
+                    <div className="space-y-2 pt-2 border-t border-border">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-ink-muted block">
+                        Module Configuration
+                      </span>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="p-2.5 rounded-[var(--ui-radius-sm)] bg-paper-bg border border-border">
+                          <p className="font-bold text-ink-fg">Reading &amp; Writing</p>
+                          <p className="text-[11px] text-ink-muted mt-0.5">
+                            2 Modules · 54 Questions · 64m
+                          </p>
+                        </div>
+                        <div className="p-2.5 rounded-[var(--ui-radius-sm)] bg-paper-bg border border-border">
+                          <p className="font-bold text-ink-fg">Math (Desmos)</p>
+                          <p className="text-[11px] text-ink-muted mt-0.5">
+                            2 Modules · 44 Questions · 70m
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Actions Footer */}
-                <div className="mt-6 pt-4 border-t border-[var(--border-subtle)] flex flex-col sm:flex-row items-center gap-2.5">
+                <div className="p-5 pt-0 flex flex-wrap items-center gap-2.5">
                   <Button
                     variant="primary"
-                    size="md"
-                    className="w-full sm:flex-1"
-                    loading={startingAttempt}
+                    size="sm"
+                    className="flex-1"
+                    disabled={startingAttempt}
                     onClick={() => handleStartFullLength(test)}
                   >
-                    <Play className="w-4 h-4 mr-1 fill-current" />
-                    <span>Full-Length Test</span>
+                    <Play className="w-3.5 h-3.5 mr-1 fill-current" />
+                    <span>Start Full-Length</span>
                   </Button>
 
                   <Button
                     variant="secondary"
-                    size="md"
-                    className="w-full sm:flex-1"
+                    size="sm"
+                    className="flex-1"
+                    disabled={startingAttempt}
                     onClick={() => {
                       setSelectedTest(test);
                       setIsSectionalOpen(true);
                     }}
                   >
-                    <Target className="w-4 h-4 mr-1" />
+                    <Sliders className="w-3.5 h-3.5 mr-1" />
                     <span>Sectional Drill</span>
                   </Button>
                 </div>
-              </Card>
+              </div>
             );
           })}
         </div>
       )}
 
-      {/* -------------------------------------------------------------------
-          SECTIONAL SELECTION MODAL
-      -------------------------------------------------------------------- */}
-      <Dialog
+      {/* Sectional Drill Selector ModalDialog */}
+      <ModalDialog
         open={isSectionalOpen}
         onClose={() => setIsSectionalOpen(false)}
-        title={selectedTest?.title || "Choose Sectional Module"}
-        description="Select a single SAT section and module to practice with focused timing."
-        maxWidth="lg"
+        title={selectedTest ? `Sectional Practice: ${selectedTest.title}` : "Sectional Practice"}
+        maxWidthClassName="max-w-xl"
+        closeDisabled={startingAttempt}
       >
-        <div className="space-y-4 py-2">
+        <div className="space-y-4">
+          <p className="text-xs text-ink-muted leading-relaxed">
+            Select an individual section and module to drill with focused timing. Your score will be
+            reported on the 200–800 section scale.
+          </p>
+
           <div className="space-y-2">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-              Reading and Writing
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {[
+              {
+                section: "Reading and Writing",
+                module: 1,
+                desc: "Module 1 · 27 Questions · 32 Minutes",
+                badge: "Verbal",
+              },
+              {
+                section: "Reading and Writing",
+                module: 2,
+                desc: "Module 2 · 27 Questions · 32 Minutes",
+                badge: "Verbal",
+              },
+              {
+                section: "Math",
+                module: 1,
+                desc: "Module 1 · 22 Questions · 35 Minutes (Desmos)",
+                badge: "Math",
+              },
+              {
+                section: "Math",
+                module: 2,
+                desc: "Module 2 · 22 Questions · 35 Minutes (Desmos)",
+                badge: "Math",
+              },
+            ].map((opt) => (
               <button
+                key={`${opt.section}-${opt.module}`}
                 type="button"
                 disabled={startingAttempt}
-                onClick={() => handleStartSectional("Reading and Writing", 1)}
-                className="p-3 text-left rounded-[var(--ui-radius-sm)] border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:border-[var(--accent-brand)] hover:bg-[var(--accent-brand-tint)]/30 transition-all cursor-pointer"
+                onClick={() => handleStartSectional(opt.section, opt.module)}
+                className="w-full flex items-center justify-between p-3.5 rounded-[var(--ui-radius-sm)] border border-border bg-surface-white hover:border-brand hover:bg-brand-tint/30 transition text-left cursor-pointer workbook-press"
               >
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-sm text-[var(--text-primary)]">Module 1</span>
-                  <Badge variant="muted" size="sm">27 Qs</Badge>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={opt.badge === "Math" ? "brand" : "info"} size="sm">
+                      {opt.badge}
+                    </Badge>
+                    <span className="font-bold text-sm text-ink-fg">
+                      {opt.section} — Module {opt.module}
+                    </span>
+                  </div>
+                  <p className="text-xs text-ink-muted mt-1">{opt.desc}</p>
                 </div>
-                <p className="text-xs text-[var(--text-muted)] mt-1">32 minutes · Standard difficulty</p>
+                <ArrowRight className="w-4 h-4 text-brand-strong shrink-0 ml-3" />
               </button>
-
-              <button
-                type="button"
-                disabled={startingAttempt}
-                onClick={() => handleStartSectional("Reading and Writing", 2)}
-                className="p-3 text-left rounded-[var(--ui-radius-sm)] border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:border-[var(--accent-brand)] hover:bg-[var(--accent-brand-tint)]/30 transition-all cursor-pointer"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-sm text-[var(--text-primary)]">Module 2</span>
-                  <Badge variant="muted" size="sm">27 Qs</Badge>
-                </div>
-                <p className="text-xs text-[var(--text-muted)] mt-1">32 minutes · Adaptive module</p>
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-2 pt-2 border-t border-[var(--border-subtle)]">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-              Math (Desmos Allowed)
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                disabled={startingAttempt}
-                onClick={() => handleStartSectional("Math", 1)}
-                className="p-3 text-left rounded-[var(--ui-radius-sm)] border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:border-[var(--accent-brand)] hover:bg-[var(--accent-brand-tint)]/30 transition-all cursor-pointer"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-sm text-[var(--text-primary)]">Module 1</span>
-                  <Badge variant="muted" size="sm">22 Qs</Badge>
-                </div>
-                <p className="text-xs text-[var(--text-muted)] mt-1">35 minutes · MCQ &amp; SPR</p>
-              </button>
-
-              <button
-                type="button"
-                disabled={startingAttempt}
-                onClick={() => handleStartSectional("Math", 2)}
-                className="p-3 text-left rounded-[var(--ui-radius-sm)] border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:border-[var(--accent-brand)] hover:bg-[var(--accent-brand-tint)]/30 transition-all cursor-pointer"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-sm text-[var(--text-primary)]">Module 2</span>
-                  <Badge variant="muted" size="sm">22 Qs</Badge>
-                </div>
-                <p className="text-xs text-[var(--text-muted)] mt-1">35 minutes · MCQ &amp; SPR</p>
-              </button>
-            </div>
+            ))}
           </div>
         </div>
-      </Dialog>
+      </ModalDialog>
     </div>
   );
 }

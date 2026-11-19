@@ -1,10 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { Flag, X, HelpCircle, Check, FileText, HelpCircle as QuestionIcon } from "lucide-react";
+import { Flag, X, FileText, HelpCircle as QuestionIcon } from "lucide-react";
 import RichText from "@/components/RichText";
 import { Badge } from "@/components/ui/Badge";
-import { Input } from "@/components/ui/Input";
 
 export interface QuestionViewerProps {
   question: any;
@@ -44,18 +43,18 @@ export default function QuestionViewer({
   const hasPassage = !!question.passage && question.passage.trim().length > 0;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)] mt-16 mb-16 overflow-hidden bg-[var(--bg-canvas)]">
+    <div className="flex flex-col h-[calc(100vh-8rem)] mt-16 mb-16 overflow-hidden bg-canvas">
       {/* Mobile Tab Switcher if question has passage */}
       {hasPassage && (
-        <div className="lg:hidden flex items-center border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-2 shrink-0">
-          <div className="flex items-center gap-1 w-full bg-[var(--bg-canvas)] p-1 rounded-[var(--ui-radius-sm)] border border-[var(--border-subtle)]">
+        <div className="lg:hidden flex items-center border-b border-border bg-surface-white px-4 py-2 shrink-0">
+          <div className="flex items-center gap-1 w-full bg-canvas p-1 rounded-[var(--ui-radius-sm)] border border-border">
             <button
               type="button"
               onClick={() => setMobileTab("passage")}
               className={`flex-1 py-1.5 text-xs font-semibold rounded-[var(--ui-radius-sm)] transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
                 mobileTab === "passage"
-                  ? "bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-xs"
-                  : "text-[var(--text-muted)]"
+                  ? "bg-surface-white text-ink-fg shadow-xs"
+                  : "text-ink-muted"
               }`}
             >
               <FileText className="w-3.5 h-3.5" />
@@ -66,8 +65,8 @@ export default function QuestionViewer({
               onClick={() => setMobileTab("question")}
               className={`flex-1 py-1.5 text-xs font-semibold rounded-[var(--ui-radius-sm)] transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
                 mobileTab === "question"
-                  ? "bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-xs"
-                  : "text-[var(--text-muted)]"
+                  ? "bg-surface-white text-ink-fg shadow-xs"
+                  : "text-ink-muted"
               }`}
             >
               <QuestionIcon className="w-3.5 h-3.5" />
@@ -82,13 +81,13 @@ export default function QuestionViewer({
         {/* Left Pane: Passage (for Reading & Writing) */}
         {hasPassage && (
           <div
-            className={`w-full lg:w-1/2 border-r border-[var(--border-subtle)] h-full overflow-y-auto p-6 sm:p-8 lg:p-10 bg-[var(--bg-surface)] ${
+            className={`w-full lg:w-1/2 border-r border-border h-full overflow-y-auto p-6 sm:p-8 lg:p-10 bg-surface-white ${
               mobileTab === "passage" ? "block" : "hidden lg:block"
             }`}
           >
             <div className="max-w-2xl mx-auto space-y-6">
-              <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
-                <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
+              <div className="flex items-center justify-between pb-3 border-b border-border">
+                <span className="text-xs font-bold uppercase tracking-wider text-ink-muted">
                   Reading &amp; Writing Passage
                 </span>
                 {question.domain && (
@@ -100,7 +99,7 @@ export default function QuestionViewer({
 
               {/* Optional Figure / Image */}
               {question.imageUrl && (
-                <div className="flex justify-center p-4 rounded-[var(--ui-radius)] border border-[var(--border-subtle)] bg-[var(--bg-canvas)]">
+                <div className="flex justify-center p-4 rounded-[var(--ui-radius)] border border-border bg-canvas">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={question.imageUrl}
@@ -111,7 +110,7 @@ export default function QuestionViewer({
               )}
 
               {/* Passage Body */}
-              <div className="text-base sm:text-lg leading-relaxed text-[var(--text-primary)]">
+              <div className="text-base sm:text-lg leading-relaxed text-ink-fg">
                 <RichText content={question.passage} />
               </div>
             </div>
@@ -120,23 +119,23 @@ export default function QuestionViewer({
 
         {/* Right Pane: Question Prompt & Choices / SPR */}
         <div
-          className={`flex-1 h-full overflow-y-auto p-6 sm:p-8 lg:p-10 bg-[var(--bg-surface)] ${
+          className={`flex-1 h-full overflow-y-auto p-6 sm:p-8 lg:p-10 bg-surface-white ${
             hasPassage ? (mobileTab === "question" ? "block" : "hidden lg:block") : "w-full"
           }`}
         >
           <div className="max-w-2xl mx-auto space-y-6">
             {/* Question Top Meta Bar */}
-            <div className="flex items-center justify-between pb-4 border-b border-[var(--border-subtle)]">
+            <div className="flex items-center justify-between pb-4 border-b border-border">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-[var(--ui-radius-sm)] bg-[var(--text-primary)] text-white font-bold flex items-center justify-center text-sm shadow-xs font-mono">
+                <div className="w-8 h-8 rounded-[var(--ui-radius-sm)] bg-ink-fg text-white font-bold flex items-center justify-center text-sm shadow-xs font-mono">
                   {index + 1}
                 </div>
                 <div>
-                  <span className="text-xs font-semibold text-[var(--text-muted)]">
+                  <span className="text-xs font-semibold text-ink-muted">
                     Question {index + 1}
                   </span>
                   {question.skill && (
-                    <span className="hidden sm:inline-block ml-2 text-xs text-[var(--text-muted)]">
+                    <span className="hidden sm:inline-block ml-2 text-xs text-ink-muted">
                       · {question.skill}
                     </span>
                   )}
@@ -149,13 +148,13 @@ export default function QuestionViewer({
                 onClick={() => onToggleFlag(question._id)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--ui-radius-sm)] text-xs font-semibold border transition-all cursor-pointer ${
                   isFlagged
-                    ? "bg-[var(--accent-brand-tint)] border-[var(--accent-brand)] text-[#8c6b1f]"
-                    : "bg-[var(--bg-surface)] border-[var(--border-subtle)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-strong)]"
+                    ? "bg-brand-tint border-[#ecd49d] text-brand-strong"
+                    : "bg-surface-white border-border text-ink-muted hover:text-ink-fg hover:border-border-strong"
                 }`}
               >
                 <Flag
                   className={`w-3.5 h-3.5 ${
-                    isFlagged ? "fill-[var(--accent-brand)] text-[var(--accent-brand-strong)]" : ""
+                    isFlagged ? "fill-brand text-brand-strong" : ""
                   }`}
                 />
                 <span>{isFlagged ? "Marked for Review" : "Mark for Review"}</span>
@@ -164,7 +163,7 @@ export default function QuestionViewer({
 
             {/* If no passage on left but has an image (e.g. Math linear graphs) */}
             {!hasPassage && question.imageUrl && (
-              <div className="flex justify-center p-4 rounded-[var(--ui-radius)] border border-[var(--border-subtle)] bg-[var(--bg-canvas)]">
+              <div className="flex justify-center p-4 rounded-[var(--ui-radius)] border border-border bg-canvas">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={question.imageUrl}
@@ -175,7 +174,7 @@ export default function QuestionViewer({
             )}
 
             {/* Question Text / Prompt */}
-            <div className="text-base sm:text-lg font-medium text-[var(--text-primary)] leading-relaxed">
+            <div className="text-base sm:text-lg font-medium text-ink-fg leading-relaxed">
               <RichText content={question.questionText} />
             </div>
 
@@ -184,13 +183,13 @@ export default function QuestionViewer({
             ============================================================== */}
             {isSpr ? (
               /* Student Produced Response (SPR) Free-form Input */
-              <div className="p-6 rounded-[var(--ui-radius)] border border-[var(--border-strong)] bg-[var(--bg-canvas)] space-y-4">
+              <div className="p-6 rounded-[var(--ui-radius)] border border-border-strong bg-canvas space-y-4 brutal-shadow-xs">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Badge variant="brand" size="sm">
                       Student-Produced Response
                     </Badge>
-                    <span className="text-xs font-semibold text-[var(--text-muted)]">
+                    <span className="text-xs font-semibold text-ink-muted">
                       Numeric or Fraction
                     </span>
                   </div>
@@ -199,7 +198,7 @@ export default function QuestionViewer({
                 <div>
                   <label
                     htmlFor={`spr-input-${question._id}`}
-                    className="block text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2"
+                    className="block text-xs font-bold uppercase tracking-wider text-ink-muted mb-2"
                   >
                     Your Answer
                   </label>
@@ -211,23 +210,23 @@ export default function QuestionViewer({
                       value={userAnswer || ""}
                       onChange={(e) => onAnswerSelect(question._id, e.target.value.trim())}
                       placeholder="e.g. 28, 0.5, or 1/2"
-                      className="workbook-input max-w-xs text-lg font-mono font-bold tracking-wider"
+                      className="workbook-input max-w-xs text-lg font-mono font-bold tracking-wider bg-surface-white"
                     />
                     {userAnswer && (
-                      <span className="text-xs font-mono font-semibold px-2.5 py-1.5 rounded-[var(--ui-radius-sm)] bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-primary)]">
+                      <span className="text-xs font-mono font-semibold px-2.5 py-1.5 rounded-[var(--ui-radius-sm)] bg-surface-white border border-border text-ink-fg">
                         Entered: <strong>{userAnswer}</strong>
                       </span>
                     )}
                   </div>
                 </div>
 
-                <div className="text-xs text-[var(--text-muted)] space-y-1 pt-2 border-t border-[var(--border-subtle)]">
+                <div className="text-xs text-ink-muted space-y-1 pt-2 border-t border-border">
                   <p>
-                    • Acceptable formats: integers (e.g. <code className="font-mono font-bold">28</code>),
-                    decimals (e.g. <code className="font-mono font-bold">0.5</code> or <code className="font-mono font-bold">.5</code>),
-                    fractions (e.g. <code className="font-mono font-bold">1/2</code>).
+                    • Acceptable formats: integers (e.g. <code className="font-mono font-bold text-ink-fg">28</code>),
+                    decimals (e.g. <code className="font-mono font-bold text-ink-fg">0.5</code> or <code className="font-mono font-bold text-ink-fg">.5</code>),
+                    fractions (e.g. <code className="font-mono font-bold text-ink-fg">1/2</code>).
                   </p>
-                  <p>• Negative values (e.g. <code className="font-mono font-bold">-3/4</code>) are supported if required.</p>
+                  <p>• Negative values (e.g. <code className="font-mono font-bold text-ink-fg">-3/4</code>) are supported if required.</p>
                 </div>
               </div>
             ) : (
@@ -248,7 +247,7 @@ export default function QuestionViewer({
                       <button
                         type="button"
                         onClick={(e) => toggleCrossOut(e, choice)}
-                        className="hidden sm:flex absolute -left-9 p-1 rounded text-[var(--text-muted)] hover:text-[var(--state-danger)] hover:bg-[#fdede8] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        className="hidden sm:flex absolute -left-9 p-1 rounded text-ink-muted hover:text-[var(--state-danger)] hover:bg-[#fdede8] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                         title={isCrossed ? "Restore choice" : "Cross out choice"}
                       >
                         <X className="w-4 h-4" />
@@ -258,23 +257,23 @@ export default function QuestionViewer({
                       <div
                         className={`flex-1 flex items-start gap-4 p-4 rounded-[var(--ui-radius)] border transition-all duration-150 ${
                           isSelected
-                            ? "bg-[var(--accent-brand-tint)]/60 border-[var(--accent-brand-strong)] shadow-[var(--ui-shadow-xs)]"
-                            : "bg-[var(--bg-surface)] border-[var(--border-strong)] hover:border-[var(--accent-brand)]"
+                            ? "bg-brand-tint/60 border-brand-strong brutal-shadow-xs"
+                            : "bg-surface-white border-border-strong hover:border-brand"
                         } ${isCrossed ? "opacity-35 line-through pointer-events-none" : ""}`}
                       >
                         {/* Radio Letter Bubble */}
                         <div
                           className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 transition-colors ${
                             isSelected
-                              ? "bg-[var(--accent-brand)] text-[var(--text-on-brand)] shadow-xs"
-                              : "border border-[var(--border-strong)] text-[var(--text-muted)] bg-[var(--bg-canvas)]"
+                              ? "bg-brand text-ink-fg shadow-xs"
+                              : "border border-border-strong text-ink-muted bg-canvas"
                           }`}
                         >
                           {label}
                         </div>
 
                         {/* Choice Text with KaTeX */}
-                        <div className="flex-1 pt-0.5 text-sm sm:text-base text-[var(--text-primary)] font-medium leading-relaxed">
+                        <div className="flex-1 pt-0.5 text-sm sm:text-base text-ink-fg font-medium leading-relaxed">
                           <RichText content={choice} as="span" />
                         </div>
                       </div>

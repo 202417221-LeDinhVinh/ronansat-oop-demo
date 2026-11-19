@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import {
   Trophy,
@@ -10,13 +10,23 @@ import {
   ArrowRight,
   Filter,
   Search,
+  ExternalLink,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { TableSkeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { PillToggleGroup } from "@/components/ui/PillToggleGroup";
+import { SearchControl } from "@/components/ui/SearchControl";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 import api from "@/lib/axios";
 
 interface ResultItem {
@@ -28,6 +38,8 @@ interface ResultItem {
   score?: number;
   mode?: string;
   isSectional?: boolean;
+  sectionalSubject?: string;
+  sectionalModule?: number;
   date?: string;
   createdAt?: string;
   answersCount?: number;
@@ -37,10 +49,24 @@ interface ResultItem {
   };
 }
 
+type FilterMode = "all" | "full_length" | "sectional";
+
+function formatDateTime(dateString?: string) {
+  if (!dateString) return "—";
+  const d = new Date(dateString);
+  if (isNaN(d.getTime())) return dateString;
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export default function ResultsListPage() {
   const [results, setResults] = useState<ResultItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterMode, setFilterMode] = useState<"all" | "full_length" | "sectional">("all");
+  const [filterMode, setFilterMode] = useState<FilterMode>("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchResults = async () => {
     try {
@@ -58,59 +84,64 @@ export default function ResultsListPage() {
     fetchResults();
   }, []);
 
-  const filtered = results.filter((r) => {
-    if (filterMode === "all") return true;
-    if (filterMode === "sectional") return r.isSectional || r.mode === "sectional";
-    return !r.isSectional && r.mode !== "sectional";
-  });
+  const filtered = useMemo(() => {
+    return results.filter((r) => {
+      const isSec = r.isSectional || r.mode === "sectional";
+      if (filterMode === "sectional" && !isSec) return false;
+      if (filterMode === "full_length" && isSec) return false;
+
+      if (searchQuery.trim()) {
+        const title = typeof r.testId === "object" ? r.testId?.title || "" : "";
+        const query = searchQuery.toLowerCase();
+        if (
+          !title.toLowerCase().includes(query) &&
+          !(r.sectionalSubject && r.sectionalSubject.toLowerCase().includes(query))
+        ) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [results, filterMode, searchQuery]);
 
   return (
     <div className="space-y-6 sm:space-y-8">
       {/* Header */}
       <PageHeader
         title="Test Results & Score Reports"
-        description="Comprehensive history of your full-length practice tests and sectional drills."
-        badge={<Badge variant="brand">{results.length} Attempts</Badge>}
+        description="Comprehensive history of your full-length practice tests and targeted sectional drills."
+        badge={<Badge variant="brand">{results.length} Completed</Badge>}
       />
 
-      {/* Filter Tabs */}
-      <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] pb-3">
-        <span className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mr-2 flex items-center gap-1">
-          <Filter className="w-3.5 h-3.5" /> Filter:
-        </span>
-        <button
-          type="button"
-          onClick={() => setFilterMode("all")}
-          className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--ui-radius-sm)] transition-colors cursor-pointer ${
-            filterMode === "all"
-              ? "bg-[var(--accent-brand-tint)] text-[#8c6b1f] border border-[#ecd49d]"
-              : "text-[var(--text-muted)] hover:bg-[var(--bg-canvas)]"
-          }`}
-        >
-          All Attempts ({results.length})
-        </button>
-        <button
-          type="button"
-          onClick={() => setFilterMode("full_length")}
-          className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--ui-radius-sm)] transition-colors cursor-pointer ${
-            filterMode === "full_length"
-              ? "bg-[var(--accent-brand-tint)] text-[#8c6b1f] border border-[#ecd49d]"
-              : "text-[var(--text-muted)] hover:bg-[var(--bg-canvas)]"
-          }`}
-        >
-          Full-Length
-        </button>
-        <button
-          type="button"
-          onClick={() => setFilterMode("sectional")}
-          className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--ui-radius-sm)] transition-colors cursor-pointer ${
-            filterMode === "sectional"
-              ? "bg-[var(--accent-brand-tint)] text-[#8c6b1f] border border-[#ecd49d]"
-              : "text-[var(--text-muted)] hover:bg-[var(--bg-canvas)]"
-          }`}
-        >
-          Sectional
-        </button>
+      {/* Filter and Search Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+        <PillToggleGroup<FilterMode>
+          value={filterMode}
+          onChange={(next) => setFilterMode(next)}
+          ariaLabel="Filter results by mode"
+          options={[
+            { value: "all", label: `All (${results.length})` },
+            {
+              value: "full_length",
+              label: `Full-Length (${
+                results.filter((r) => !r.isSectional && r.mode !== "sectional").length
+              })`,
+            },
+            {
+              value: "sectional",
+              label: `Sectional (${
+                results.filter((r) => r.isSectional || r.mode === "sectional").length
+              })`,
+            },
+          ]}
+        />
+
+        <SearchControl
+          query={searchQuery}
+          onQueryChange={setSearchQuery}
+          placeholder="Filter by test title..."
+        />
       </div>
 
       {loading ? (
@@ -118,8 +149,12 @@ export default function ResultsListPage() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<Trophy className="w-8 h-8" />}
-          title="No results match your criteria"
-          description="Take a practice test or sectional drill to see your score report here."
+          title={searchQuery ? "No matching score reports" : "No results yet"}
+          description={
+            searchQuery
+              ? `No tests found matching "${searchQuery}".`
+              : "Complete a full-length practice test or sectional drill to view your scores here."
+          }
           action={
             <Link href="/practice">
               <Button variant="primary" size="sm">
@@ -130,88 +165,93 @@ export default function ResultsListPage() {
         />
       ) : (
         <div className="space-y-4">
-          {filtered.map((item: any) => {
-            const testTitle =
-              (typeof item.testId === "object" ? item.testId?.title : null) ||
-              item.testTitle ||
-              "Official SAT Practice Test";
-            const isSectional = item.isSectional || item.mode === "sectional";
-            const scoreVal = isSectional
-              ? Math.max(200, item.score ?? 200)
-              : Math.max(400, item.score ?? 400);
-            const dateStr = item.date || item.createdAt || "";
-            const formattedDate = dateStr
-              ? new Date(dateStr).toLocaleDateString(undefined, {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })
-              : "Recent";
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Practice Test</TableHead>
+                <TableHead>Mode</TableHead>
+                <TableHead>Date Taken</TableHead>
+                <TableHead>Section Breakdown</TableHead>
+                <TableHead className="text-right">Scaled Score</TableHead>
+                <TableHead className="text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((result) => {
+                const isSec = result.isSectional || result.mode === "sectional";
+                const title =
+                  typeof result.testId === "object"
+                    ? result.testId?.title
+                    : isSec
+                    ? `${result.sectionalSubject || "Sectional"} (Module ${result.sectionalModule || 1})`
+                    : "Digital SAT Practice Test";
 
-            return (
-              <Card
-                key={item._id}
-                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 hover:border-[var(--accent-brand)] transition-all duration-150"
-              >
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <Badge variant={isSectional ? "info" : "brand"} size="sm">
-                      {isSectional ? "Sectional" : "Full-Length"}
-                    </Badge>
-                    <span className="text-xs text-[var(--text-muted)] flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {formattedDate}
-                    </span>
-                  </div>
+                const dateStr = formatDateTime(result.createdAt || result.date);
 
-                  <h3 className="text-base font-bold text-[var(--text-primary)] font-display">
-                    {testTitle}
-                  </h3>
+                return (
+                  <TableRow key={result._id} className="group">
+                    <TableCell>
+                      <Link
+                        href={`/results/${result._id}`}
+                        className="font-bold text-ink-fg hover:text-brand-strong transition flex items-center gap-1.5"
+                      >
+                        <span className="truncate max-w-xs">{title}</span>
+                      </Link>
+                    </TableCell>
 
-                  {isSectional && item.sectionalSubject && (
-                    <p className="text-xs text-[var(--text-muted)]">
-                      {item.sectionalSubject} · Module {item.sectionalModule || 1}
-                    </p>
-                  )}
+                    <TableCell>
+                      <Badge variant={isSec ? "info" : "brand"} size="sm">
+                        {isSec ? "Sectional" : "Full-Length"}
+                      </Badge>
+                    </TableCell>
 
-                  {item.sectionBreakdown && !isSectional && (
-                    <div className="flex items-center gap-4 text-xs text-[var(--text-muted)]">
-                      <span>
-                        Reading &amp; Writing:{" "}
-                        <strong className="text-[var(--text-primary)]">
-                          {item.sectionBreakdown.readingAndWriting || 0}
-                        </strong>
+                    <TableCell className="font-mono text-xs text-ink-muted tabular-nums">
+                      {dateStr}
+                    </TableCell>
+
+                    <TableCell>
+                      {result.sectionBreakdown ? (
+                        <div className="flex items-center gap-2 text-xs font-mono tabular-nums text-ink-muted">
+                          {result.sectionBreakdown.readingAndWriting !== undefined && (
+                            <span className="px-1.5 py-0.5 rounded bg-paper-bg border border-border">
+                              R&amp;W {result.sectionBreakdown.readingAndWriting}
+                            </span>
+                          )}
+                          {result.sectionBreakdown.math !== undefined && (
+                            <span className="px-1.5 py-0.5 rounded bg-paper-bg border border-border">
+                              Math {result.sectionBreakdown.math}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-ink-muted font-mono">—</span>
+                      )}
+                    </TableCell>
+
+                    <TableCell className="text-right">
+                      <span className="inline-flex items-baseline gap-1 rounded-[var(--ui-radius-sm)] border border-border bg-paper-bg px-2.5 py-1">
+                        <span className="font-display text-base font-black text-ink-fg tabular-nums leading-none">
+                          {result.score || 0}
+                        </span>
+                        <span className="text-[10px] font-bold text-ink-muted">
+                          {isSec ? "/ 800" : "/ 1600"}
+                        </span>
                       </span>
-                      <span>
-                        Math:{" "}
-                        <strong className="text-[var(--text-primary)]">
-                          {item.sectionBreakdown.math || 0}
-                        </strong>
-                      </span>
-                    </div>
-                  )}
-                </div>
+                    </TableCell>
 
-                <div className="flex items-center justify-between sm:justify-end gap-6 pt-3 sm:pt-0 border-t sm:border-t-0 border-[var(--border-subtle)]">
-                  <div className="text-right">
-                    <span className="text-2xl font-black text-[var(--text-primary)]">
-                      {scoreVal}
-                    </span>
-                    <span className="text-xs text-[var(--text-muted)] block">
-                      {isSectional ? "/ 800" : "/ 1600"}
-                    </span>
-                  </div>
-
-                  <Link href={`/results/${item._id}`}>
-                    <Button variant="secondary" size="md">
-                      <span>Review Details</span>
-                      <ArrowRight className="w-4 h-4 ml-1" />
-                    </Button>
-                  </Link>
-                </div>
-              </Card>
-            );
-          })}
+                    <TableCell className="text-right">
+                      <Link href={`/results/${result._id}`}>
+                        <Button variant="secondary" size="sm" className="h-8 text-xs">
+                          <span>Report</span>
+                          <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                        </Button>
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>
