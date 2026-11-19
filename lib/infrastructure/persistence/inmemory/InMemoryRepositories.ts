@@ -8,6 +8,8 @@ import {
     IVocabCardRepository,
     ErrorLogQueryFilters,
 } from "../../../application/ports/repositories";
+import { IRepository } from "../../../application/ports/repositories/IRepository";
+import { Entity } from "../../../domain/shared/Entity";
 import { User, Role } from "../../../domain/user";
 import { Test } from "../../../domain/test";
 import { Question } from "../../../domain/question";
@@ -20,110 +22,107 @@ function nextId(prefix = "id"): string {
     return `${prefix}_${Date.now()}_${idCounter++}`;
 }
 
-export class InMemoryUserRepository implements IUserRepository {
-    private users = new Map<string, User>();
+/**
+ * Ch.9(a): ONE generic in-memory repository.
+ *
+ * Every test fake used to duplicate the same Map-based CRUD code. This abstract class is
+ * parameterized by the entity and id types (`T extends Entity<TId>, TId = string`) and
+ * implements `IRepository<T, TId>` once. The small subclasses below only add the extra
+ * query methods required by their port interface.
+ *
+ * Pattern: Repository Pattern + Template Method (subclasses supply the id prefix).
+ */
+export abstract class InMemoryRepository<
+    TEntity extends Entity<TId>,
+    TId = string
+> implements IRepository<TEntity, TId> {
+    protected readonly items = new Map<TId, TEntity>();
+    protected abstract readonly idPrefix: string;
 
-    public async findById(id: string): Promise<User | null> {
-        return this.users.get(id) || null;
+    public async findById(id: TId): Promise<TEntity | null> {
+        return this.items.get(id) ?? null;
     }
 
-    public async save(entity: User): Promise<User> {
+    public async save(entity: TEntity): Promise<TEntity> {
         let id = entity.id;
         if (!id) {
-            id = nextId("user");
+            id = this.generateId();
             Object.defineProperty(entity, "_id", { value: id, writable: false });
         }
-        this.users.set(id, entity);
+        this.items.set(id, entity);
         return entity;
     }
 
-    public async delete(id: string): Promise<boolean> {
-        return this.users.delete(id);
+    public async delete(id: TId): Promise<boolean> {
+        return this.items.delete(id);
     }
+
+    public async findAll(): Promise<TEntity[]> {
+        return this.all();
+    }
+
+    public async count(): Promise<number> {
+        return this.items.size;
+    }
+
+    protected all(): TEntity[] {
+        return Array.from(this.items.values());
+    }
+
+    protected generateId(): TId {
+        return nextId(this.idPrefix) as unknown as TId;
+    }
+}
+
+/**
+ * Thin subclass: only the user-specific queries live here.
+ */
+export class InMemoryUserRepository
+    extends InMemoryRepository<User>
+    implements IUserRepository
+{
+    protected readonly idPrefix: string = "user";
 
     public async findByEmail(email: string): Promise<User | null> {
-        const norm = email.trim().toLowerCase();
-        for (const user of this.users.values()) {
-            if (user.email.value === norm) {
-                return user;
-            }
-        }
-        return null;
-    }
-
-    public async findAll(): Promise<User[]> {
-        return Array.from(this.users.values());
+        const normalized = email.trim().toLowerCase();
+        return this.all().find((user) => user.email.value === normalized) ?? null;
     }
 
     public async updateRole(id: string, role: Role): Promise<User | null> {
-        const user = this.users.get(id);
+        const user = this.items.get(id);
         if (!user) return null;
         Object.defineProperty(user, "_role", { value: role, writable: false });
         return user;
     }
-
-    public async count(): Promise<number> {
-        return this.users.size;
-    }
 }
 
-export class InMemoryTestRepository implements ITestRepository {
-    private tests = new Map<string, Test>();
-
-    public async findById(id: string): Promise<Test | null> {
-        return this.tests.get(id) || null;
-    }
-
-    public async save(entity: Test): Promise<Test> {
-        let id = entity.id;
-        if (!id) {
-            id = nextId("test");
-            Object.defineProperty(entity, "_id", { value: id, writable: false });
-        }
-        this.tests.set(id, entity);
-        return entity;
-    }
-
-    public async delete(id: string): Promise<boolean> {
-        return this.tests.delete(id);
-    }
-
-    public async findAll(): Promise<Test[]> {
-        return Array.from(this.tests.values());
-    }
-
-    public async count(): Promise<number> {
-        return this.tests.size;
-    }
+/**
+ * Thin subclass: the base class already provides findAll, findById, save, delete, count.
+ */
+export class InMemoryTestRepository
+    extends InMemoryRepository<Test>
+    implements ITestRepository
+{
+    protected readonly idPrefix: string = "test";
 }
 
-export class InMemoryQuestionRepository implements IQuestionRepository {
-    private questions = new Map<string, Question>();
-
-    public async findById(id: string): Promise<Question | null> {
-        return this.questions.get(id) || null;
-    }
-
-    public async save(entity: Question): Promise<Question> {
-        let id = entity.id;
-        if (!id) {
-            id = nextId("q");
-            Object.defineProperty(entity, "_id", { value: id, writable: false });
-        }
-        this.questions.set(id, entity);
-        return entity;
-    }
-
-    public async delete(id: string): Promise<boolean> {
-        return this.questions.delete(id);
-    }
+/**
+ * Thin subclass: adds the question lookup queries.
+ */
+export class InMemoryQuestionRepository
+    extends InMemoryRepository<Question>
+    implements IQuestionRepository
+{
+    protected readonly idPrefix: string = "q";
 
     public async findByIds(ids: string[]): Promise<Question[]> {
-        return ids.map((id) => this.questions.get(id)).filter((q): q is Question => !!q);
+        return ids
+            .map((id) => this.items.get(id))
+            .filter((question): question is Question => !!question);
     }
 
     public async findByTestId(testId: string): Promise<Question[]> {
-        return Array.from(this.questions.values()).filter((q) => q.testId === testId);
+        return this.all().filter((question) => question.testId === testId);
     }
 
     public async findBySectionAndModule(
@@ -131,42 +130,26 @@ export class InMemoryQuestionRepository implements IQuestionRepository {
         section: string,
         module: number
     ): Promise<Question[]> {
-        return Array.from(this.questions.values()).filter(
-            (q) =>
-                q.testId === testId &&
-                q.section.toLowerCase() === section.toLowerCase() &&
-                q.module === module
+        return this.all().filter(
+            (question) =>
+                question.testId === testId &&
+                question.section.toLowerCase() === section.toLowerCase() &&
+                question.module === module
         );
-    }
-
-    public async count(): Promise<number> {
-        return this.questions.size;
     }
 }
 
-export class InMemoryAttemptRepository implements IAttemptRepository {
-    private attempts = new Map<string, Attempt>();
-
-    public async findById(id: string): Promise<Attempt | null> {
-        return this.attempts.get(id) || null;
-    }
-
-    public async save(entity: Attempt): Promise<Attempt> {
-        let id = entity.id;
-        if (!id) {
-            id = nextId("attempt");
-            Object.defineProperty(entity, "_id", { value: id, writable: false });
-        }
-        this.attempts.set(id, entity);
-        return entity;
-    }
-
-    public async delete(id: string): Promise<boolean> {
-        return this.attempts.delete(id);
-    }
+/**
+ * Thin subclass: adds the per-user attempt queries.
+ */
+export class InMemoryAttemptRepository
+    extends InMemoryRepository<Attempt>
+    implements IAttemptRepository
+{
+    protected readonly idPrefix: string = "attempt";
 
     public async findByUserId(userId: string): Promise<Attempt[]> {
-        return Array.from(this.attempts.values()).filter((a) => a.userId === userId);
+        return this.all().filter((attempt) => attempt.userId === userId);
     }
 
     public async countByUserId(userId: string): Promise<number> {
@@ -174,134 +157,89 @@ export class InMemoryAttemptRepository implements IAttemptRepository {
     }
 
     public async findRecentByUserId(userId: string, limit: number): Promise<Attempt[]> {
-        const userAttempts = await this.findByUserId(userId);
-        return userAttempts
+        const attempts = await this.findByUserId(userId);
+        return attempts
             .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime())
             .slice(0, limit);
     }
-
-    public async count(): Promise<number> {
-        return this.attempts.size;
-    }
 }
 
-export class InMemoryErrorLogRepository implements IErrorLogRepository {
-    private entries = new Map<string, ErrorLogEntry>();
-
-    public async findById(id: string): Promise<ErrorLogEntry | null> {
-        return this.entries.get(id) || null;
-    }
-
-    public async save(entity: ErrorLogEntry): Promise<ErrorLogEntry> {
-        let id = entity.id;
-        if (!id) {
-            id = nextId("err");
-            Object.defineProperty(entity, "_id", { value: id, writable: false });
-        }
-        this.entries.set(id, entity);
-        return entity;
-    }
-
-    public async delete(id: string): Promise<boolean> {
-        return this.entries.delete(id);
-    }
+/**
+ * Thin subclass: adds the per-user error log queries.
+ */
+export class InMemoryErrorLogRepository
+    extends InMemoryRepository<ErrorLogEntry>
+    implements IErrorLogRepository
+{
+    protected readonly idPrefix: string = "err";
 
     public async findByUserAndQuestion(
         userId: string,
         questionId: string
     ): Promise<ErrorLogEntry | null> {
-        for (const entry of this.entries.values()) {
-            if (entry.userId === userId && entry.questionId === questionId) {
-                return entry;
-            }
-        }
-        return null;
+        return (
+            this.all().find(
+                (entry) => entry.userId === userId && entry.questionId === questionId
+            ) ?? null
+        );
     }
 
     public async findByUserId(
         userId: string,
         filters?: ErrorLogQueryFilters
     ): Promise<ErrorLogEntry[]> {
-        return Array.from(this.entries.values()).filter((e) => {
-            if (e.userId !== userId) return false;
-            if (filters?.status && e.status !== filters.status) return false;
-            if (filters?.reason && e.reason !== filters.reason) return false;
+        return this.all().filter((entry) => {
+            if (entry.userId !== userId) return false;
+            if (filters?.status && entry.status !== filters.status) return false;
+            if (filters?.reason && entry.reason !== filters.reason) return false;
             return true;
         });
     }
 
     public async countOpenByUserId(userId: string): Promise<number> {
-        return Array.from(this.entries.values()).filter(
-            (e) => e.userId === userId && e.status === "open"
+        return this.all().filter(
+            (entry) => entry.userId === userId && entry.status === "open"
         ).length;
     }
 }
 
-export class InMemoryVocabDeckRepository implements IVocabDeckRepository {
-    private decks = new Map<string, VocabDeck>();
-
-    public async findById(id: string): Promise<VocabDeck | null> {
-        return this.decks.get(id) || null;
-    }
-
-    public async save(entity: VocabDeck): Promise<VocabDeck> {
-        let id = entity.id;
-        if (!id) {
-            id = nextId("deck");
-            Object.defineProperty(entity, "_id", { value: id, writable: false });
-        }
-        this.decks.set(id, entity);
-        return entity;
-    }
-
-    public async delete(id: string): Promise<boolean> {
-        return this.decks.delete(id);
-    }
+/**
+ * Thin subclass: adds the deck visibility queries.
+ */
+export class InMemoryVocabDeckRepository
+    extends InMemoryRepository<VocabDeck>
+    implements IVocabDeckRepository
+{
+    protected readonly idPrefix: string = "deck";
 
     public async findAllAvailable(userId?: string): Promise<VocabDeck[]> {
-        return Array.from(this.decks.values()).filter(
-            (d) => d.isSystem || (userId && d.ownerId === userId)
+        return this.all().filter(
+            (deck) => deck.isSystem || (userId !== undefined && deck.ownerId === userId)
         );
     }
 
     public async findSystemDecks(): Promise<VocabDeck[]> {
-        return Array.from(this.decks.values()).filter((d) => d.isSystem);
-    }
-
-    public async count(): Promise<number> {
-        return this.decks.size;
+        return this.all().filter((deck) => deck.isSystem);
     }
 }
 
-export class InMemoryVocabCardRepository implements IVocabCardRepository {
-    private cards = new Map<string, VocabCard>();
-
-    public async findById(id: string): Promise<VocabCard | null> {
-        return this.cards.get(id) || null;
-    }
-
-    public async save(entity: VocabCard): Promise<VocabCard> {
-        let id = entity.id;
-        if (!id) {
-            id = nextId("card");
-            Object.defineProperty(entity, "_id", { value: id, writable: false });
-        }
-        this.cards.set(id, entity);
-        return entity;
-    }
-
-    public async delete(id: string): Promise<boolean> {
-        return this.cards.delete(id);
-    }
+/**
+ * Thin subclass: adds the deck and due-date card queries.
+ */
+export class InMemoryVocabCardRepository
+    extends InMemoryRepository<VocabCard>
+    implements IVocabCardRepository
+{
+    protected readonly idPrefix: string = "card";
 
     public async findByDeckId(deckId: string): Promise<VocabCard[]> {
-        return Array.from(this.cards.values()).filter((c) => c.deckId === deckId);
+        return this.all().filter((card) => card.deckId === deckId);
     }
 
     public async findDueCards(deckIds: string[], now: Date): Promise<VocabCard[]> {
-        const set = new Set(deckIds);
-        return Array.from(this.cards.values()).filter(
-            (c) => set.has(c.deckId) && c.isDue(now)
+        const deckIdSet = new Set(deckIds);
+        return this.all().filter(
+            (card) => deckIdSet.has(card.deckId) && card.isDue(now)
         );
     }
 

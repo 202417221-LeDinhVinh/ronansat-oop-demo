@@ -33,6 +33,7 @@ export class Attempt extends Entity<string> {
     private readonly _sectionalSubject?: string;
     private readonly _sectionalModule?: number;
     private _status: AttemptStatus;
+    /** Composition: AnswerRecord value objects have no meaning outside this attempt and are owned by it. */
     private _answers: AnswerRecord[];
     private _score?: ScaledScore;
     private readonly _startedAt: Date;

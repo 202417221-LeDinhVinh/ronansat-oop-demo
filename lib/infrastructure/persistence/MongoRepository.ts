@@ -1,6 +1,7 @@
 import mongoose, { Document, Model } from "mongoose";
 import { IRepository } from "../../application/ports/repositories/IRepository";
 import { Entity } from "../../domain/shared/Entity";
+import { PersistenceError } from "../../domain/shared/DomainError";
 
 /**
  * Generic abstract base class for Mongoose repositories.
@@ -29,36 +30,49 @@ export abstract class MongoRepository<
         if (!id || !mongoose.Types.ObjectId.isValid(id)) {
             return null;
         }
-        const doc = await this.model.findById(id);
-        if (!doc) {
-            return null;
+        try {
+            const doc = await this.model.findById(id);
+            if (!doc) {
+                return null;
+            }
+            return this.toEntity(doc as TDoc);
+        } catch (error) {
+            // Ch.10: translate the driver error and keep it as the cause.
+            throw PersistenceError.wrap("findById", error);
         }
-        return this.toEntity(doc as TDoc);
     }
 
     public async save(entity: TEntity): Promise<TEntity> {
-        const data = this.toDocument(entity);
+        try {
+            const data = this.toDocument(entity);
 
-        if (entity.id && mongoose.Types.ObjectId.isValid(entity.id)) {
-            const updated = await this.model.findByIdAndUpdate(
-                entity.id,
-                { $set: data },
-                { new: true, upsert: true }
-            );
-            return this.toEntity(updated as TDoc);
+            if (entity.id && mongoose.Types.ObjectId.isValid(entity.id)) {
+                const updated = await this.model.findByIdAndUpdate(
+                    entity.id,
+                    { $set: data },
+                    { new: true, upsert: true }
+                );
+                return this.toEntity(updated as TDoc);
+            }
+
+            // New entity: create document
+            const docInstance = new this.model(data);
+            const created = await docInstance.save();
+            return this.toEntity(created as unknown as TDoc);
+        } catch (error) {
+            throw PersistenceError.wrap("save", error);
         }
-
-        // New entity: create document
-        const docInstance = new this.model(data);
-        const created = await docInstance.save();
-        return this.toEntity(created as unknown as TDoc);
     }
 
     public async delete(id: string): Promise<boolean> {
         if (!id || !mongoose.Types.ObjectId.isValid(id)) {
             return false;
         }
-        const res = await this.model.findByIdAndDelete(id);
-        return !!res;
+        try {
+            const res = await this.model.findByIdAndDelete(id);
+            return !!res;
+        } catch (error) {
+            throw PersistenceError.wrap("delete", error);
+        }
     }
 }

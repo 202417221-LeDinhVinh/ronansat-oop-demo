@@ -26,6 +26,10 @@ export class StudentProducedResponseQuestion extends Question {
         return "spr";
     }
 
+    public override describe(): string {
+        return `${super.describe()} (student-produced response)`;
+    }
+
     /**
      * Parses numeric strings including integers, decimals (with or without leading zero),
      * and fractions (e.g. "5/2", "1/3").

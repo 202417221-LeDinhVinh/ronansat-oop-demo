@@ -2,14 +2,11 @@ import {
     IAttemptRepository,
     ITestRepository,
     IQuestionRepository,
-    IUserRepository,
-    IErrorLogRepository,
     Clock,
 } from "../ports";
 import { Attempt, TestMode } from "../../domain";
 import { ScoringStrategyFactory } from "../../domain/scoring";
-import { ErrorLogEntry } from "../../domain/errorlog";
-import { Student } from "../../domain/user";
+import { DomainEventBus, DomainEvents } from "../../domain/events";
 import { NotFoundError, ForbiddenError, ValidationError } from "../../domain/shared";
 
 export interface StartAttemptDTO {
@@ -28,16 +25,17 @@ export interface RecordAnswerDTO {
 }
 
 /**
- * Service managing test attempts lifecycle: start, record answers, submit, score, and error log creation.
+ * Service managing test attempts lifecycle: start, record answers, submit, and score.
+ * Ch.11: after a submission it publishes `AttemptSubmitted`; the side effects (student progress
+ * and error-log projection) live in Observer subscribers instead of this workflow method.
  */
 export class PracticeService {
     public constructor(
         private readonly attemptRepo: IAttemptRepository,
         private readonly testRepo: ITestRepository,
         private readonly questionRepo: IQuestionRepository,
-        private readonly userRepo: IUserRepository,
-        private readonly errorLogRepo: IErrorLogRepository,
-        private readonly clock: Clock
+        private readonly clock: Clock,
+        private readonly eventBus: DomainEventBus<DomainEvents>
     ) {}
 
     public async startAttempt(dto: StartAttemptDTO): Promise<Attempt> {
@@ -114,56 +112,18 @@ export class PracticeService {
 
         const strategy = ScoringStrategyFactory.getStrategy(attempt.mode);
         const now = this.clock.now();
-        const score = attempt.submit(strategy, questions, now);
+        attempt.submit(strategy, questions, now);
 
         // Persist submitted attempt
         const savedAttempt = await this.attemptRepo.save(attempt);
 
-        // Update student progress (highestScore, testsTaken, lastTestDate)
-        const user = await this.userRepo.findById(userId);
-        if (user && user instanceof Student) {
-            user.recordTestCompletion(attempt.testId, score.total, now);
-            await this.userRepo.save(user);
-        }
-
-        // Deduplicated Error Log recording for missed or omitted questions
-        const answeredMap = new Map<string, { answer: string; isCorrect: boolean }>();
-        for (const ans of attempt.answers) {
-            answeredMap.set(ans.questionId, { answer: ans.userAnswer, isCorrect: ans.isCorrect });
-        }
-
-        for (const q of questions) {
-            const recorded = answeredMap.get(q.id);
-            const isIncorrectOrOmitted = !recorded || !recorded.isCorrect;
-
-            if (isIncorrectOrOmitted) {
-                if (user && user instanceof Student) {
-                    user.addWrongQuestion(q.id);
-                }
-
-                const existingErrorLog = await this.errorLogRepo.findByUserAndQuestion(userId, q.id);
-                if (existingErrorLog) {
-                    existingErrorLog.recordNewMistake(attempt.id, now);
-                    await this.errorLogRepo.save(existingErrorLog);
-                } else {
-                    const newLog = new ErrorLogEntry({
-                        id: "",
-                        userId,
-                        questionId: q.id,
-                        latestAttemptId: attempt.id,
-                        timesMissed: 1,
-                        reason: "Unclassified",
-                        status: "open",
-                        lastAttemptedAt: now,
-                    });
-                    await this.errorLogRepo.save(newLog);
-                }
-            }
-        }
-
-        if (user && user instanceof Student) {
-            await this.userRepo.save(user);
-        }
+        // Ch.11: Observer pattern. Subscribers run synchronously (awaited) before the response,
+        // so the API behaves exactly like the old inline side effects.
+        await this.eventBus.publish("AttemptSubmitted", {
+            attempt: savedAttempt,
+            questions,
+            occurredAt: now,
+        });
 
         return savedAttempt;
     }

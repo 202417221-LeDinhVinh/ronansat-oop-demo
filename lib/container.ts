@@ -2,6 +2,9 @@ import dbConnect from "./mongodb";
 import { BcryptPasswordHasher } from "./infrastructure/security/BcryptPasswordHasher";
 import { SystemClock } from "./infrastructure/security/SystemClock";
 import { LeitnerScheduler } from "./domain/vocab/LeitnerScheduler";
+import { DomainEventBus, DomainEvents } from "./domain/events";
+import { StudentProgressHandler } from "./application/eventhandlers/StudentProgressHandler";
+import { ErrorLogProjector } from "./application/eventhandlers/ErrorLogProjector";
 
 import { MongoUserRepository } from "./infrastructure/persistence/MongoUserRepository";
 import { MongoTestRepository } from "./infrastructure/persistence/MongoTestRepository";
@@ -85,6 +88,7 @@ export class Container {
     public readonly passwordHasher: BcryptPasswordHasher;
     public readonly clock: SystemClock;
     public readonly reviewScheduler: LeitnerScheduler;
+    public readonly eventBus: DomainEventBus<DomainEvents>;
 
     // Repositories
     public readonly userRepository: MongoUserRepository;
@@ -155,6 +159,7 @@ export class Container {
         this.passwordHasher = new BcryptPasswordHasher();
         this.clock = new SystemClock();
         this.reviewScheduler = new LeitnerScheduler();
+        this.eventBus = new DomainEventBus<DomainEvents>();
 
         // 2. Repositories
         this.userRepository = new MongoUserRepository();
@@ -165,6 +170,17 @@ export class Container {
         this.vocabDeckRepository = new MongoVocabDeckRepository();
         this.vocabCardRepository = new MongoVocabCardRepository();
 
+        // Ch.11 Observer wiring: the composition root is the only place that knows both the
+        // event bus and the concrete subscribers.
+        this.eventBus.subscribe(
+            "AttemptSubmitted",
+            new StudentProgressHandler(this.userRepository)
+        );
+        this.eventBus.subscribe(
+            "AttemptSubmitted",
+            new ErrorLogProjector(this.errorLogRepository)
+        );
+
         // 3. Application Services
         this.authService = new AuthService(this.userRepository, this.passwordHasher);
         this.testService = new TestService(this.testRepository, this.questionRepository);
@@ -172,9 +188,8 @@ export class Container {
             this.attemptRepository,
             this.testRepository,
             this.questionRepository,
-            this.userRepository,
-            this.errorLogRepository,
-            this.clock
+            this.clock,
+            this.eventBus
         );
         this.resultService = new ResultService(
             this.attemptRepository,
@@ -197,7 +212,8 @@ export class Container {
             this.vocabDeckRepository,
             this.vocabCardRepository,
             this.reviewScheduler,
-            this.clock
+            this.clock,
+            this.eventBus
         );
         this.adminService = new AdminService(
             this.userRepository,

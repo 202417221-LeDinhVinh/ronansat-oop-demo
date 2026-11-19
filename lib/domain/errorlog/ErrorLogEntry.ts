@@ -23,6 +23,7 @@ export interface ErrorLogEntryProps {
 export class ErrorLogEntry extends Entity<string> {
     private readonly _userId: string;
     private readonly _questionId: string;
+    /** Aggregation: the entry points at attempts and questions by id; those entities have their own lifecycle. */
     private _latestAttemptId: string;
     private _timesMissed: number;
     private _reason: MistakeReason;

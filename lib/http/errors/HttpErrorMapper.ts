@@ -7,6 +7,7 @@ import {
     ForbiddenError,
     ConflictError,
     InvariantViolationError,
+    PersistenceError,
 } from "../../domain/shared/DomainError";
 
 export interface ApiErrorResponse {
@@ -60,6 +61,15 @@ export class HttpErrorMapper {
             return NextResponse.json(
                 { error: error.message, code: "INVARIANT_VIOLATION" },
                 { status: 422 }
+            );
+        }
+
+        // Ch.10: infrastructure failures become an opaque 500. The chained `cause` and the
+        // driver message stay on the server; the client only sees a stable generic error.
+        if (error instanceof PersistenceError) {
+            return NextResponse.json(
+                { error: "Internal persistence error", code: "PERSISTENCE_ERROR" },
+                { status: 500 }
             );
         }
 

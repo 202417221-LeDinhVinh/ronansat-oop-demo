@@ -11,6 +11,9 @@ import {
 import { PasswordHasher } from "@/lib/application/ports/PasswordHasher";
 import { Clock } from "@/lib/application/ports/Clock";
 import { LeitnerScheduler } from "@/lib/domain/vocab/LeitnerScheduler";
+import { DomainEventBus, DomainEvents } from "@/lib/domain/events";
+import { StudentProgressHandler } from "@/lib/application/eventhandlers/StudentProgressHandler";
+import { ErrorLogProjector } from "@/lib/application/eventhandlers/ErrorLogProjector";
 import { AuthService } from "@/lib/application/services/AuthService";
 import { TestService } from "@/lib/application/services/TestService";
 import { PracticeService } from "@/lib/application/services/PracticeService";
@@ -56,6 +59,7 @@ describe("Application Layer Services (tested with In-Memory Fakes)", () => {
     let hasher: FakePasswordHasher;
     let clock: FakeClock;
     let scheduler: LeitnerScheduler;
+    let eventBus: DomainEventBus<DomainEvents>;
 
     beforeEach(() => {
         userRepo = new InMemoryUserRepository();
@@ -68,6 +72,9 @@ describe("Application Layer Services (tested with In-Memory Fakes)", () => {
         hasher = new FakePasswordHasher();
         clock = new FakeClock();
         scheduler = new LeitnerScheduler();
+        eventBus = new DomainEventBus<DomainEvents>();
+        eventBus.subscribe("AttemptSubmitted", new StudentProgressHandler(userRepo));
+        eventBus.subscribe("AttemptSubmitted", new ErrorLogProjector(errorLogRepo));
     });
 
     describe("AuthService", () => {
@@ -213,9 +220,8 @@ describe("Application Layer Services (tested with In-Memory Fakes)", () => {
                 attemptRepo,
                 testRepo,
                 questionRepo,
-                userRepo,
-                errorLogRepo,
-                clock
+                clock,
+                eventBus
             );
 
             // 1. Start Attempt
@@ -307,7 +313,7 @@ describe("Application Layer Services (tested with In-Memory Fakes)", () => {
 
     describe("VocabService", () => {
         it("creates decks, cards, and executes Leitner reviews", async () => {
-            const vocabService = new VocabService(deckRepo, cardRepo, scheduler, clock);
+            const vocabService = new VocabService(deckRepo, cardRepo, scheduler, clock, eventBus);
 
             const deck = await vocabService.createDeck("u_1", {
                 title: "SAT Vocab Deck 1",

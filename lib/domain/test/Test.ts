@@ -20,7 +20,9 @@ export class Test extends Entity<string> {
     private _title: string;
     private _timeLimit: number;
     private _difficulty: string;
+    /** Composition: a Test owns its Section value objects; they are created and destroyed with the test. */
     private _sections: Section[];
+    /** Aggregation: questions live in their own repository and are referenced here only by id. */
     private _questionIds: string[];
     private readonly _createdAt: Date;
 

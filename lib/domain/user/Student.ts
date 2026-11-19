@@ -33,7 +33,15 @@ export class Student extends User {
         return this._highestScore;
     }
 
+    public override get bestScore(): number {
+        return this._highestScore;
+    }
+
     public get lastTestDate(): Date | undefined {
+        return this._lastTestDate;
+    }
+
+    public override get lastAssessmentDate(): Date | undefined {
         return this._lastTestDate;
     }
 

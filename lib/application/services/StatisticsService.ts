@@ -12,7 +12,6 @@ import {
     SkillPerformance,
     ActivityHeatmapItem,
 } from "../../domain/statistics";
-import { Student } from "../../domain/user";
 
 /**
  * Service aggregating performance statistics for dashboard and progress tracking.
@@ -130,9 +129,10 @@ export class StatisticsService {
             ? Math.round(fullLengthSum / fullLengthScores.length)
             : 0;
 
+        const bestRecordedScore = user?.bestScore ?? 0;
         const highestScore = fullLengthScores.length > 0
             ? Math.max(...fullLengthScores)
-            : (user instanceof Student && user.highestScore >= 400 ? user.highestScore : 0);
+            : (bestRecordedScore >= 400 ? bestRecordedScore : 0);
 
         const latestScore = fullLengthAttempts.length > 0
             ? (fullLengthAttempts[fullLengthAttempts.length - 1].score?.total ?? 400)

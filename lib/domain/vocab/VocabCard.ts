@@ -1,6 +1,7 @@
 import { Entity } from "../shared/Entity";
 import { ReviewGrade } from "./ReviewGrade";
 import { ReviewScheduler } from "./ReviewScheduler";
+import { LeitnerScheduler } from "./LeitnerScheduler";
 
 export interface VocabCardProps {
     id: string;
@@ -22,6 +23,18 @@ export interface VocabCardProps {
  * Encapsulates card contents and Leitner spaced repetition study state.
  */
 export class VocabCard extends Entity<string> {
+    /**
+     * Ch.5 static member: one class-level constant shared by every card.
+     * It is not copied into each object; it belongs to the `VocabCard` class itself.
+     */
+    public static readonly MAX_BOX = 5;
+
+    /**
+     * Class-level default collaborator used by the short `review(grade)` overload.
+     * It is stateless, so a single shared instance is safe.
+     */
+    private static readonly DEFAULT_SCHEDULER: ReviewScheduler = new LeitnerScheduler();
+
     private readonly _deckId: string;
     private _word: string;
     private _partOfSpeech: string;
@@ -41,7 +54,7 @@ export class VocabCard extends Entity<string> {
         this._partOfSpeech = props.partOfSpeech.trim();
         this._definition = props.definition.trim();
         this._exampleSentence = props.exampleSentence.trim();
-        this._box = Math.max(1, Math.min(5, props.box ?? 1));
+        this._box = Math.max(1, Math.min(VocabCard.MAX_BOX, props.box ?? 1));
         this._nextReviewDate = props.nextReviewDate ?? new Date();
         this._intervalDays = props.intervalDays ?? 1;
         this._reviewCount = props.reviewCount ?? 0;
@@ -69,6 +82,10 @@ export class VocabCard extends Entity<string> {
         return this._exampleSentence;
     }
 
+    /**
+     * Ch.5 instance member: every card has its own box value.
+     * Compare with the static `MAX_BOX` constant above: `card.box` differs per object.
+     */
     public get box(): number {
         return this._box;
     }
@@ -110,11 +127,19 @@ export class VocabCard extends Entity<string> {
     }
 
     /**
-     * Executes a spaced repetition review step on this card.
+     * Ch.5 method overloading.
+     * Short form for callers that just want the default Leitner scheduler,
+     * and full form for the application service, which injects its scheduler and clock.
      */
-    public review(grade: ReviewGrade, scheduler: ReviewScheduler, now: Date = new Date()): void {
+    public review(grade: ReviewGrade): void;
+    public review(grade: ReviewGrade, scheduler: ReviewScheduler, now?: Date): void;
+    public review(
+        grade: ReviewGrade,
+        scheduler: ReviewScheduler = VocabCard.DEFAULT_SCHEDULER,
+        now: Date = new Date()
+    ): void {
         const result = scheduler.calculateNextReview(this._box, grade, now);
-        this._box = result.nextBox;
+        this._box = Math.max(1, Math.min(VocabCard.MAX_BOX, result.nextBox));
         this._nextReviewDate = result.nextReviewDate;
         this._intervalDays = result.intervalDays;
         this._reviewCount++;

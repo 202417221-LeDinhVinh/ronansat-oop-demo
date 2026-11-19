@@ -21,6 +21,7 @@ export class VocabDeck extends Entity<string> {
     private _description: string;
     private readonly _isSystem: boolean;
     private readonly _ownerId?: string;
+    /** Composition: a deck owns its cards; removing the deck removes the cards with it. */
     private _cards: VocabCard[];
     private readonly _createdAt: Date;
 

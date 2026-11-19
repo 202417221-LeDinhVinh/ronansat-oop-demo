@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "seed": "tsx seed.ts",
-    "demo": "tsx scripts/demo.ts"
+    "demo": "tsx scripts/demo.ts",
+    "check:oop": "tsx scripts/check-oop-checklist.ts"
   },
   "dependencies": {
     "@fontsource/bricolage-grotesque": "^5.3.0",

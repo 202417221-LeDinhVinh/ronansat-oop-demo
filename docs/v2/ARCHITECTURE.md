@@ -26,20 +26,24 @@ code in `lib/` and the Next.js routes in `app/api/`.
 |                              ErrorLogService,                 |
 |                              StatisticsService, VocabService, |
 |                              AdminService                    |
+|   eventhandlers/             StudentProgressHandler,          |
+|                              ErrorLogProjector               |
 |   ports/                     IRepository, I*Repository,       |
 |                              PasswordHasher, Clock            |
 +-----------------------------+--------------------------------+
                               |
 +-----------------------------v--------------------------------+
 | lib/domain/                  pure TypeScript                  |
-|   shared/                    Entity, ValueObject, DomainError |
+|   shared/                    Entity, ValueObject, DomainError, |
+|                              Page, collectEntityIds           |
 |   user/ test/ question/      entities, value objects,         |
 |   attempt/ scoring/          strategies, invariants           |
-|   errorlog/ vocab/ statistics/                                |
+|   errorlog/ vocab/ statistics/ events/                        |
 +--------------------------------------------------------------+
 
 lib/infrastructure/ implements application ports and persists domain entities:
-  persistence/  Mongoose schemas, MongoRepository, Mongo*Repository, InMemory*Repository
+  persistence/  Mongoose schemas, MongoRepository, Mongo*Repository,
+                InMemoryRepository<T, TId> plus thin InMemory*Repository subclasses
   security/     BcryptPasswordHasher, SystemClock
   seed/         ProdSampleImporter, DemoSeeder
 ```
@@ -49,14 +53,18 @@ lib/infrastructure/ implements application ports and persists domain entities:
 - **Domain** (`lib/domain`): entities, value objects, domain errors, and algorithms such as
   scoring and Leitner scheduling. Imports nothing from Mongoose, Next.js, React, or the other
   layers. This is enforced by review and lint rules.
-- **Application** (`lib/application`): use-case services and port interfaces. Services receive
-  their dependencies through constructors and depend only on the domain and the ports. They
-  contain the workflow logic: auth, starting/submitting attempts, assembling results, error-log
-  operations, statistics aggregation, vocabulary review, and admin operations.
+- **Application** (`lib/application`): use-case services, event handlers, and port interfaces.
+  Services receive their dependencies through constructors and depend only on the domain and the
+  ports. They contain the workflow logic: auth, starting/submitting attempts, assembling results,
+  error-log operations, statistics aggregation, vocabulary review, and admin operations. Event
+  handlers (`StudentProgressHandler`, `ErrorLogProjector`) implement `EventHandler<T>` and react
+  to `AttemptSubmitted`.
 - **Infrastructure** (`lib/infrastructure`): concrete adapters. Mongoose is allowed only here.
   `MongoRepository<TEntity, TDoc>` implements the generic CRUD template and declares abstract
-  `toEntity()` / `toDocument()` hooks that each concrete repository implements. The in-memory
-  repositories implement the same interfaces for unit tests.
+  `toEntity()` / `toDocument()` hooks that each concrete repository implements, wrapping driver
+  failures in `PersistenceError` with a chained `cause`. One generic
+  `InMemoryRepository<TEntity extends Entity<TId>, TId>` implements the same CRUD contract for
+  tests; thin subclasses add only the extra query methods.
 - **HTTP** (`lib/http`): `BaseController` and concrete controllers. Controllers translate an
   HTTP request into an application-service call and serialize the result. They do not contain
   domain rules or persistence code.
@@ -103,13 +111,15 @@ export const container = Container.getInstance();
 
 Construction order inside the container:
 
-1. Ports: `BcryptPasswordHasher`, `SystemClock`, `LeitnerScheduler`.
+1. Ports: `BcryptPasswordHasher`, `SystemClock`, `LeitnerScheduler`, `DomainEventBus`.
 2. Repositories: `MongoUserRepository`, `MongoTestRepository`, `MongoQuestionRepository`,
    `MongoAttemptRepository`, `MongoErrorLogRepository`, `MongoVocabDeckRepository`,
    `MongoVocabCardRepository`.
-3. Application services: each service receives the repositories and ports it needs, for example
-   `PracticeService(attemptRepo, testRepo, questionRepo, userRepo, errorLogRepo, clock)`.
-4. Controllers: each controller receives its application service, for example
+3. Event subscriptions: `StudentProgressHandler` and `ErrorLogProjector` subscribe to
+   `AttemptSubmitted` on the bus.
+4. Application services: each service receives the repositories and ports it needs, for example
+   `PracticeService(attemptRepo, testRepo, questionRepo, clock, eventBus)`.
+5. Controllers: each controller receives its application service, for example
    `SubmitAttemptController(practiceService)`.
 
 A route handler therefore stays trivial:
@@ -162,18 +172,23 @@ The student clicks **Submit Test** in the test room.
    - stores the score, marks the status `submitted`, sets `submittedAt`, and returns the score.
    The strategy is either `FullLengthScoringStrategy` or `SectionalScoringStrategy`, selected by
    `ScoringStrategyFactory`.
-7. **Persistence and side effects** back in `PracticeService`:
+7. **Persistence and Observer side effects** back in `PracticeService`:
    - `attemptRepo.save(attempt)` persists the submitted attempt and score;
-   - if the user is a `Student`, `recordTestCompletion(testId, score.total, now)` updates
-     progress and the user is saved;
-   - for every unanswered or incorrect question, the service calls
-     `errorLogRepo.findByUserAndQuestion(userId, questionId)`. An existing
-     `ErrorLogEntry.recordNewMistake(attemptId, now)` increments the miss count and reopens the
-     entry; otherwise a new `ErrorLogEntry` is created. This keeps the log deduplicated per
-     question.
+   - the service publishes `AttemptSubmitted { attempt, questions, occurredAt }` on the typed
+     `DomainEventBus` and awaits it, so subscribers finish before the response is sent;
+   - `StudentProgressHandler` downcasts with `instanceof Student` (the one justified explicit
+     downcast), calls `recordTestCompletion(testId, score.total, now)`, records missed question
+     ids, and saves the user;
+   - `ErrorLogProjector` calls `errorLogRepo.findByUserAndQuestion(userId, questionId)`. An
+     existing `ErrorLogEntry.recordNewMistake(attemptId, now)` increments the miss count and
+     reopens the entry; otherwise a new `ErrorLogEntry` is created. This keeps the log
+     deduplicated per question.
 8. **Response** - `BaseController.handle()` serializes the controller result with
    `NextResponse.json(result, { status: 200 })`. The test room redirects to
    `/results/{attemptId}`.
+
+Vocabulary reviews follow the same idea: `VocabService.reviewCard()` persists the new Leitner
+state and publishes `VocabCardReviewed` before returning the updated card.
 
 The same pattern applies to every other endpoint: route -> `BaseController.handle()` ->
 controller `execute()` -> application service -> domain entity/value object -> repository port
@@ -209,8 +224,8 @@ Use the existing features as templates. For a new resource or use case, follow t
    imports here.
 9. **Tests** (`tests/unit/`): test domain invariants and the service with
    `InMemory*Repository` fakes. Run `npm test`.
-10. **Gates**: run `npx tsc --noEmit`, `npm run lint`, `npm test`, and `npm run build`, then
-    verify endpoints with the demo running.
+10. **Gates**: run `npx tsc --noEmit`, `npm run lint`, `npm test`, `npm run check:oop`, and
+    `npm run build`, then verify endpoints with the demo running.
 
 Checklist for a correct change:
 
@@ -219,4 +234,8 @@ Checklist for a correct change:
 - No `any` in `lib/domain` or `lib/application`.
 - Services depend on interfaces, not concrete classes.
 - New controllers are wired in the container and reached through a thin route.
+- New cross-cutting side effects subscribe to a typed event instead of being inlined in a service.
 - Domain invariants are enforced in domain methods and covered by unit tests.
+
+The chapter-by-chapter evidence table (Ch.3 - Ch.13, SOLID, and design patterns) lives in
+[`docs/v3/OOP-CHECKLIST.md`](../v3/OOP-CHECKLIST.md) and is verified by `npm run check:oop`.

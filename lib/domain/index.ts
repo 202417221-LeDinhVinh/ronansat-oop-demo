@@ -7,3 +7,4 @@ export * from "./scoring";
 export * from "./errorlog";
 export * from "./vocab";
 export * from "./statistics";
+export * from "./events";

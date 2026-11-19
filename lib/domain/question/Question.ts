@@ -1,4 +1,5 @@
 import { Entity } from "../shared/Entity";
+import { Gradable, Describable, Comparable } from "./QuestionCapabilities";
 
 export type QuestionDifficulty = "easy" | "medium" | "hard";
 export type QuestionType = "multiple_choice" | "spr";
@@ -22,8 +23,17 @@ export interface QuestionProps {
  * Abstract base class for questions in RonanSAT.
  * Demonstrates Abstraction and Polymorphism.
  * Pattern: Template Method / Polymorphic Entity.
+ *
+ * Ch.7 abstract class vs interface: `Question` is an abstract class because every question
+ * shares the same fields (passage, module, explanation, ...) and template behaviour (position
+ * ordering, description). It also implements three capability interfaces - `Gradable`,
+ * `Describable`, and `Comparable<Question>` - so clients can depend on tiny roles instead of
+ * the full concrete class.
  */
-export abstract class Question extends Entity<string> {
+export abstract class Question
+    extends Entity<string>
+    implements Gradable, Describable, Comparable<Question>
+{
     protected readonly _testId: string;
     protected readonly _section: string;
     protected readonly _module: number;
@@ -102,4 +112,25 @@ export abstract class Question extends Entity<string> {
      * Evaluated differently for MCQ vs SPR questions.
      */
     public abstract isCorrect(userAnswer: string): boolean;
+
+    /**
+     * Describable capability. Subclasses can extend the description.
+     */
+    public describe(): string {
+        return `${this._section} module ${this._module}: ${this._questionText.slice(0, 60)}`;
+    }
+
+    /**
+     * Comparable capability. Orders questions by SAT section (Reading & Writing first, Math
+     * second), then by module number. The test room uses this ordering before rendering.
+     */
+    public compareTo(other: Question): number {
+        const sectionOrder = this.sectionRank() - other.sectionRank();
+        if (sectionOrder !== 0) return sectionOrder;
+        return this._module - other._module;
+    }
+
+    private sectionRank(): number {
+        return this._section.toLowerCase().includes("math") ? 1 : 0;
+    }
 }

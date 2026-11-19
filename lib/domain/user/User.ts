@@ -61,6 +61,22 @@ export abstract class User extends Entity<string> {
     }
 
     /**
+     * Ch.8 static binding: callers see `User`, dynamic binding picks the Student override.
+     * Admins have no study history, so the base implementation is the correct default.
+     */
+    public get bestScore(): number {
+        return 0;
+    }
+
+    /**
+     * Polymorphic accessor for the most recent assessment date; undefined for users without
+     * a study history.
+     */
+    public get lastAssessmentDate(): Date | undefined {
+        return undefined;
+    }
+
+    /**
      * Polymorphic method determining administrative privileges.
      */
     public abstract canAccessAdmin(): boolean;

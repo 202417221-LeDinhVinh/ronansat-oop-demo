@@ -42,7 +42,8 @@ npm test
 ```
 
 Other useful commands: `npm run build` (production build), `npm run seed` (seed an already
-running MongoDB), and `npx tsx scripts/verify-endpoints.ts` (API/page status verification
+running MongoDB), `npm run check:oop` (verify every file, symbol, and test named in the OOP
+syllabus checklist), and `npx tsx scripts/verify-endpoints.ts` (API/page status verification
 against a running demo).
 
 ## Demo accounts
@@ -88,17 +89,20 @@ lib/
     user/                           User (abstract) -> Student, Admin; Email; Role
     test/                           Test, Section, TestMode
     question/                       Question (abstract) -> MultipleChoiceQuestion,
-                                    StudentProducedResponseQuestion; QuestionFactory
+                                     StudentProducedResponseQuestion; QuestionFactory;
+                                     Gradable / Describable / Comparable capabilities
     attempt/                        Attempt (aggregate root), AnswerRecord, AttemptStatus
     scoring/                        ScoringStrategy, full-length/sectional strategies,
-                                    ScoringStrategyFactory, ScaledScore
+                                     ScoringStrategyFactory, ScaledScore
     errorlog/                       ErrorLogEntry, MistakeReason, ErrorLogStatus
     vocab/                          VocabDeck, VocabCard, ReviewScheduler, LeitnerScheduler
+    events/                         DomainEvents, DomainEventBus (typed Observer)
     statistics/                     read models for the statistics page
   application/                      use-case services and ports (interfaces)
     services/                       AuthService, TestService, PracticeService,
-                                    ResultService, ErrorLogService, StatisticsService,
-                                    VocabService, AdminService
+                                     ResultService, ErrorLogService, StatisticsService,
+                                     VocabService, AdminService
+    eventhandlers/                  StudentProgressHandler, ErrorLogProjector
     ports/                          IRepository and repository interfaces, PasswordHasher, Clock
   infrastructure/                   adapters to the outside world
     persistence/                    Mongoose schemas, MongoRepository<TEntity, TDoc>,
@@ -133,11 +137,17 @@ Every claim below is backed by code in this repository.
 | --- | --- | --- |
 | Abstraction (abstract class) | `lib/domain/shared/Entity.ts` | `Entity<TId>` owns identity and identity-based equality; all aggregates extend it. |
 | Abstraction (interfaces) | `lib/application/ports/` | Services depend on `IRepository`, `IUserRepository`, `IAttemptRepository`, `PasswordHasher`, `Clock`, and the other ports instead of concrete implementations. |
+| Abstract class vs interfaces | `lib/domain/question/Question.ts`, `lib/domain/question/QuestionCapabilities.ts` | `Question` is an abstract class for shared state and template behaviour; it implements three capability interfaces (`Gradable`, `Describable`, `Comparable<Question>`). |
 | Encapsulation / invariants | `lib/domain/attempt/Attempt.ts` | State is private; `recordAnswer()` rejects writes after submission and `submit(strategy, questions)` rejects a second submission. State is exposed through getters only. |
 | Encapsulation / value objects | `lib/domain/user/Email.ts`, `lib/domain/scoring/ScaledScore.ts`, `lib/domain/test/Section.ts` | Immutable value objects that validate in their constructors: email format, score bounds (400-1600 or 200-800), and section shape. |
+| Constructors / object comparison | `lib/domain/scoring/ScaledScore.ts`, `lib/domain/shared/ValueObject.ts`, `lib/domain/shared/Entity.ts` | `ScaledScore` has an overloaded constructor (props or section scores). Value objects use `equals` for structural equality; entities use `equals` for identity equality. |
+| Method overloading / static vs instance | `lib/domain/vocab/VocabCard.ts` | `review(grade)` and `review(grade, scheduler, now)` are overload signatures. `VocabCard.MAX_BOX` is a static constant while `card.box` is per-instance state. |
 | Inheritance | `Student` / `Admin` extend `User`; `MultipleChoiceQuestion` / `StudentProducedResponseQuestion` extend `Question`; `Mongo*Repository` extend `MongoRepository`; controllers extend `BaseController`; error types extend `DomainError`. | Shared behavior lives in the base class; subclasses add or override the parts that differ. |
-| Polymorphism | `question.isCorrect(answer)` in `Question` subclasses; `ScoringStrategy.score(attempt, questions)`; `user.canAccessAdmin()`; repository interfaces with Mongo and in-memory implementations. | The caller uses the base type, and the concrete subclass or implementation decides the behavior. |
-| Composition | `Test` has `Section[]`; `Attempt` has `AnswerRecord[]`; `VocabDeck` contains `VocabCard[]`; `ErrorLogEntry` references the latest attempt and question. | Aggregates are built from smaller domain objects instead of primitive bags. |
+| Polymorphism and binding | `question.isCorrect(answer)` in `Question` subclasses; `ScoringStrategy.score(attempt, questions)`; `user.canAccessAdmin()`; repositories with Mongo and in-memory implementations. | The caller uses a base type and dynamic binding selects the concrete behaviour. The one explicit downcast (`instanceof Student`) is justified in `StudentProgressHandler`. |
+| Composition / aggregation | `Test` has `Section[]` (composition) and references questions by id (aggregation); `Attempt` has `AnswerRecord[]` (composition); `VocabDeck` contains `VocabCard[]` (composition). | Aggregates own the objects that cannot exist alone and only reference objects with their own lifecycle. |
+| Generics | `lib/infrastructure/persistence/inmemory/InMemoryRepositories.ts`, `lib/application/ports/repositories/IRepository.ts`, `lib/domain/shared/Page.ts`, `collectEntityIds` | One generic `InMemoryRepository<T, TId>`, a bounded `IRepository<TEntity extends Entity<TId>, TId>`, a generic `Page<T>`, and an `Entity<unknown>` wildcard helper. |
+| Exceptions | `lib/domain/shared/DomainError.ts`, `lib/infrastructure/persistence/MongoRepository.ts`, `lib/http/errors/HttpErrorMapper.ts` | The domain error hierarchy includes `PersistenceError` with a chained `cause`; repositories wrap driver failures and controllers map them to an opaque 500. |
+| Observer | `lib/domain/events/DomainEventBus.ts`, `lib/application/eventhandlers/`, `lib/container.ts` | After `AttemptSubmitted`, `StudentProgressHandler` and `ErrorLogProjector` update progress and the error log through a typed event bus. |
 | Dependency Injection | Service constructors in `lib/application/services/` | Every dependency is passed in through the constructor and wired once in `lib/container.ts`. |
 | Template Method | `BaseController.handle()` and `MongoRepository.save()/findById()` | The base class fixes the algorithm; subclasses implement `execute()` or the `toEntity()` / `toDocument()` hooks. |
 | Factory | `ScoringStrategyFactory.getStrategy(mode)`, `QuestionFactory.fromPersistence()` | Object creation is centralized and returns the correct subtype. |
@@ -150,7 +160,8 @@ Every claim below is backed by code in this repository.
 | Strategy | `FullLengthScoringStrategy`, `SectionalScoringStrategy`, `LeitnerScheduler` | Swappable scoring and spaced-repetition algorithms. |
 | Factory | `ScoringStrategyFactory`, `QuestionFactory` | Creates the right strategy for a test mode and the right question subtype for stored data. |
 | Template Method | `BaseController.handle()` (authenticate -> authorize -> validate -> execute -> map errors) and `MongoRepository` CRUD with `toEntity` / `toDocument` hooks | Fixes the request and persistence skeletons while allowing subclass-specific steps. |
-| Singleton / Composition Root | `Container.getInstance()` in `lib/container.ts`, exported as `container` | Builds repositories, services, and controllers exactly once. |
+| Observer | `DomainEventBus`, `StudentProgressHandler`, `ErrorLogProjector` | `AttemptSubmitted` and `VocabCardReviewed` events notify subscribers without coupling the service to their side effects. |
+| Singleton / Composition Root | `Container.getInstance()` in `lib/container.ts`, exported as `container` | Builds repositories, services, controllers, and event subscriptions exactly once. |
 | Dependency Injection | Constructor injection in every service and controller | Application code depends on interfaces and receives them from the container. |
 
 ## Scoring
@@ -177,7 +188,7 @@ algorithm. The UI labels it as a simplified linear scale.
 
 ## Testing
 
-`npm test` runs Vitest with six unit test files under `tests/unit/`, covering the domain and
+`npm test` runs Vitest with eight unit test files under `tests/unit/`, covering the domain and
 application layers:
 
 - scoring strategies and score bounds (`scoring.test.ts`)
@@ -186,8 +197,14 @@ application layers:
 - users, email validation, and error-log deduplication/retry (`user-and-errorlog.test.ts`)
 - Leitner scheduling (`vocab-leitner.test.ts`)
 - application services with in-memory repositories (`services.test.ts`)
+- constructors, equality, overloading, capabilities, generics, wildcards, and binding
+  (`domain/oop-foundations.test.ts`)
+- exception chaining, opaque 500 mapping, and Observer event handling
+  (`application/events-and-errors.test.ts`)
 
-The suite contains **64 unit tests**. No database or running server is required for `npm test`.
+The suite contains **79 unit tests**. No database or running server is required for `npm test`.
+`npm run check:oop` additionally verifies every file, symbol, and test named in
+[`docs/v3/OOP-CHECKLIST.md`](docs/v3/OOP-CHECKLIST.md).
 
 ## Screenshots
 

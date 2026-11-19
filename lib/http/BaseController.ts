@@ -74,6 +74,8 @@ export abstract class BaseController<TInput = unknown, TOutput = unknown> {
 
             return NextResponse.json(result, { status: this.successStatus });
         } catch (error) {
+            // Ch.10: DomainError subclasses become 4xx; PersistenceError is mapped to an
+            // opaque 500 so internal causes never leak into the HTTP response.
             return HttpErrorMapper.map(error);
         }
     }

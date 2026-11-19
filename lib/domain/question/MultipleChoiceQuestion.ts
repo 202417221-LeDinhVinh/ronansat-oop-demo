@@ -31,6 +31,10 @@ export class MultipleChoiceQuestion extends Question {
         return "multiple_choice";
     }
 
+    public override describe(): string {
+        return `${super.describe()} (${this._choices.length} choices)`;
+    }
+
     /**
      * Checks if the user's choice matches the correct answer.
      * Matches either the direct option text or choice index/letter.

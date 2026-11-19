@@ -20,3 +20,14 @@ export abstract class Entity<TId> {
         return this._id === other._id;
     }
 }
+
+/**
+ * Ch.9(d): TypeScript analogue of a Java wildcard such as `List<? extends Entity<?>>`.
+ *
+ * `Entity<unknown>` says "some entity whose id type I do not need to know". The function can
+ * accept users, questions, attempts, or any other entity and only reads the common `id` member;
+ * it converts the id to a string because every id used by this application is a string.
+ */
+export function collectEntityIds(entities: readonly Entity<unknown>[]): string[] {
+    return entities.map((entity) => String(entity.id));
+}

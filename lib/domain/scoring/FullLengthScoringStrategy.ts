@@ -38,22 +38,20 @@ export class FullLengthScoringStrategy implements ScoringStrategy {
 
         const rwScaled = this.calculateSectionScore(rwCorrect, rwTotal);
         const mathScaled = this.calculateSectionScore(mathCorrect, mathTotal);
-        const total = rwScaled + mathScaled;
 
-        return new ScaledScore({
-            total,
-            sectionScores: {
+        // Uses the section-scores constructor overload: the total is rwScaled + mathScaled.
+        return new ScaledScore(
+            {
                 readingAndWriting: rwScaled,
                 math: mathScaled,
             },
-            rawCorrectCounts: {
+            {
                 readingAndWriting: rwCorrect,
                 math: mathCorrect,
                 total: rwCorrect + mathCorrect,
             },
-            totalQuestions: questions.length,
-            isSectional: false,
-        });
+            questions.length
+        );
     }
 
     private calculateSectionScore(correct: number, total: number): number {

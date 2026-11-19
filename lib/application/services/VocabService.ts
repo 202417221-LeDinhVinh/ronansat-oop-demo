@@ -9,6 +9,8 @@ import {
     ReviewGrade,
     ReviewScheduler,
 } from "../../domain/vocab";
+import { DomainEventBus, DomainEvents } from "../../domain/events";
+import { collectEntityIds } from "../../domain/shared/Entity";
 import { NotFoundError, ForbiddenError, ValidationError } from "../../domain/shared";
 
 export interface CreateDeckDTO {
@@ -31,7 +33,8 @@ export class VocabService {
         private readonly deckRepo: IVocabDeckRepository,
         private readonly cardRepo: IVocabCardRepository,
         private readonly scheduler: ReviewScheduler,
-        private readonly clock: Clock
+        private readonly clock: Clock,
+        private readonly eventBus: DomainEventBus<DomainEvents>
     ) {}
 
     public async getDecks(userId?: string): Promise<VocabDeck[]> {
@@ -201,14 +204,15 @@ export class VocabService {
 
     public async getDueCards(userId?: string): Promise<VocabCard[]> {
         const availableDecks = await this.deckRepo.findAllAvailable(userId);
-        const deckIds = availableDecks.map((d) => d.id);
+        // Ch.9(d): collectEntityIds accepts any Entity<unknown> (the Java wildcard analogue).
+        const deckIds = collectEntityIds(availableDecks);
         const now = this.clock.now();
         return this.cardRepo.findDueCards(deckIds, now);
     }
 
     public async getDueCount(userId?: string): Promise<number> {
         const availableDecks = await this.deckRepo.findAllAvailable(userId);
-        const deckIds = availableDecks.map((d) => d.id);
+        const deckIds = collectEntityIds(availableDecks);
         const now = this.clock.now();
         return this.cardRepo.countDueCards(deckIds, now);
     }
@@ -226,6 +230,15 @@ export class VocabService {
         const now = this.clock.now();
         card.review(grade, this.scheduler, now);
 
-        return this.cardRepo.save(card);
+        const saved = await this.cardRepo.save(card);
+
+        // Ch.11: notify subscribers after the review was persisted.
+        await this.eventBus.publish("VocabCardReviewed", {
+            card: saved,
+            grade,
+            reviewedAt: now,
+        });
+
+        return saved;
     }
 }

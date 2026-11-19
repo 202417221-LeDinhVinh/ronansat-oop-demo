@@ -1,27 +1,92 @@
 import { ValueObject } from "../shared/ValueObject";
 import { InvariantViolationError } from "../shared/DomainError";
 
+export interface ScaledSectionScores {
+    readingAndWriting?: number;
+    math?: number;
+}
+
+export interface ScaledRawCorrectCounts {
+    readingAndWriting?: number;
+    math?: number;
+    total: number;
+}
+
 export interface ScaledScoreProps extends Record<string, unknown> {
     total: number;
-    sectionScores: {
-        readingAndWriting?: number;
-        math?: number;
-    };
-    rawCorrectCounts: {
-        readingAndWriting?: number;
-        math?: number;
-        total: number;
-    };
+    sectionScores: ScaledSectionScores;
+    rawCorrectCounts: ScaledRawCorrectCounts;
     totalQuestions: number;
     isSectional: boolean;
+}
+
+export interface CompleteSectionScores {
+    readingAndWriting: number;
+    math: number;
+}
+
+export interface CompleteRawCorrectCounts {
+    readingAndWriting: number;
+    math: number;
+    total: number;
 }
 
 /**
  * Value Object representing the scaled SAT score (400-1600 for full test, 200-800 for sectional).
  * Invariant: Score must be within valid SAT bounds.
+ *
+ * Ch.4 constructor overloading: a full-length score can be built either from a complete props
+ * object (used when rehydrating from persistence) or directly from the two section scores
+ * (used by `FullLengthScoringStrategy`, where adding the sections is the natural computation).
  */
 export class ScaledScore extends ValueObject<ScaledScoreProps> {
-    public constructor(props: ScaledScoreProps) {
+    public constructor(props: ScaledScoreProps);
+    public constructor(
+        sectionScores: CompleteSectionScores,
+        rawCorrectCounts: CompleteRawCorrectCounts,
+        totalQuestions: number
+    );
+    public constructor(
+        propsOrSectionScores: ScaledScoreProps | CompleteSectionScores,
+        rawCorrectCounts?: CompleteRawCorrectCounts,
+        totalQuestions?: number
+    ) {
+        const props = ScaledScore.toProps(propsOrSectionScores, rawCorrectCounts, totalQuestions);
+        ScaledScore.validate(props);
+        super(props);
+    }
+
+    private static isProps(
+        value: ScaledScoreProps | CompleteSectionScores
+    ): value is ScaledScoreProps {
+        return "total" in value && "isSectional" in value;
+    }
+
+    private static toProps(
+        value: ScaledScoreProps | CompleteSectionScores,
+        rawCorrectCounts?: CompleteRawCorrectCounts,
+        totalQuestions?: number
+    ): ScaledScoreProps {
+        if (ScaledScore.isProps(value)) {
+            return value;
+        }
+
+        if (!rawCorrectCounts || totalQuestions === undefined) {
+            throw new InvariantViolationError(
+                "Building a ScaledScore from section scores requires raw counts and total questions"
+            );
+        }
+
+        return {
+            total: value.readingAndWriting + value.math,
+            sectionScores: value,
+            rawCorrectCounts,
+            totalQuestions,
+            isSectional: false,
+        };
+    }
+
+    private static validate(props: ScaledScoreProps): void {
         if (props.isSectional) {
             if (props.total < 200 || props.total > 800) {
                 throw new InvariantViolationError(
@@ -35,7 +100,6 @@ export class ScaledScore extends ValueObject<ScaledScoreProps> {
                 );
             }
         }
-        super(props);
     }
 
     public get total(): number {

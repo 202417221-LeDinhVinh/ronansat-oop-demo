@@ -6,7 +6,6 @@ import { IUserRepository, PasswordHasher } from "../../../application/ports";
 import { IAttemptRepository } from "../../../application/ports/repositories/IAttemptRepository";
 import { IErrorLogRepository } from "../../../application/ports/repositories/IErrorLogRepository";
 import { UnauthorizedError, ValidationError } from "../../../domain/shared/DomainError";
-import { Student } from "../../../domain/user/Student";
 
 export class UserStatsController extends BaseController {
     public constructor(
@@ -26,8 +25,7 @@ export class UserStatsController extends BaseController {
         const attempts = await this.attemptRepo.findByUserId(session.user.id);
         const errorLogsOpen = await this.errorLogRepo.countOpenByUserId(session.user.id);
 
-        const isStudent = user instanceof Student;
-        const highestScore = isStudent ? (user as Student).highestScore : 0;
+        const highestScore = user?.bestScore ?? 0;
 
         return {
             testsTaken: attempts.length,
@@ -35,7 +33,7 @@ export class UserStatsController extends BaseController {
             stats: {
                 testsTaken: attempts.length,
                 highestScore,
-                lastTestDate: isStudent ? (user as Student).lastTestDate : undefined,
+                lastTestDate: user?.lastAssessmentDate,
                 errorLogsToReview: errorLogsOpen,
                 recentResults: attempts.slice(0, 3).map((a) => ({
                     _id: a.id,
