@@ -1,9 +1,9 @@
 {
   "theme": "base",
-  "fontSize": 18,
+  "fontSize": 28,
   "themeVariables": {
     "fontFamily": "Arial, Helvetica, sans-serif",
-    "fontSize": "18px"
+    "fontSize": "28px"
   },
   "htmlLabels": false,
   "class": {
@@ -14,8 +14,8 @@
   },
   "sequence": {
     "mirrorActors": false,
-    "messageFontSize": 17,
-    "actorFontSize": 17,
-    "noteFontSize": 15
+    "messageFontSize": 28,
+    "actorFontSize": 28,
+    "noteFontSize": 26
   }
 }

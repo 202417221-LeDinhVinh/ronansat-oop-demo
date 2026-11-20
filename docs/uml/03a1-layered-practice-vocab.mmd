@@ -41,6 +41,6 @@ classDiagram
     BaseController <|-- RecordAnswerController
     BaseController <|-- ReviewVocabCardController
 
-    SubmitAttemptController --> PracticeService : practiceService
-    RecordAnswerController --> PracticeService : practiceService
-    ReviewVocabCardController --> VocabService : vocabService
+    SubmitAttemptController --> PracticeService
+    RecordAnswerController --> PracticeService
+    ReviewVocabCardController --> VocabService

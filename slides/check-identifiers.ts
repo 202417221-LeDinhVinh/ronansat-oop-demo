@@ -34,15 +34,16 @@ function existsInCode(token: string): boolean {
     return codeContents.some((c) => regex.test(c.content));
 }
 
-const identifierRegex = /[A-Z][A-Za-z0-9]+|[a-z]+[A-Z][A-Za-z0-9]*/g;
+const identifierRegex = /[A-Z][A-Za-z0-9_]+|[a-z]+[A-Z][A-Za-z0-9_]*/g;
 const tokens = new Set<string>();
 
-// Ignore generic placeholders and standard TypeScript builtins
+// Ignore generic placeholders and standard TypeScript / framework builtins
 const IGNORED_TOKENS = new Set([
-    "T", "TId", "TEntity", "TDoc", "TProps", "TInput", "TOutput",
+    "T", "TId", "TEntity", "TDoc", "TProps", "TInput", "TOutput", "TEvent", "TEvents", "K", "U",
     "Promise", "Record", "Map", "Date", "Array", "Set", "String", "Number", "Boolean",
     "Object", "Error", "NextResponse", "NextRequest", "Session", "Request", "Response",
-    "true", "false", "null", "undefined", "void", "string", "number", "boolean", "object"
+    "true", "false", "null", "undefined", "void", "string", "number", "boolean", "object",
+    "Math", "JSON", "RegExp"
 ]);
 
 // 2. Extract from slides/main.tex
@@ -54,7 +55,7 @@ if (fs.existsSync(mainTexPath)) {
     const textttRegex = /\\texttt\{([^}]+)\}/g;
     let m: RegExpExecArray | null;
     while ((m = textttRegex.exec(mainTexContent)) !== null) {
-        const inner = m[1];
+        const inner = m[1].replace(/\\_/g, "_");
         let im: RegExpExecArray | null;
         while ((im = identifierRegex.exec(inner)) !== null) {
             if (!IGNORED_TOKENS.has(im[0])) tokens.add(im[0]);
@@ -64,7 +65,7 @@ if (fs.existsSync(mainTexPath)) {
     // 2b. \lstinline|...| or \lstinline{...}
     const lstinlineRegex = /\\lstinline(?:\[[^\]]*\])?(?:\{([^}]+)\}|\|([^|]+)\|)/g;
     while ((m = lstinlineRegex.exec(mainTexContent)) !== null) {
-        const inner = m[1] || m[2] || "";
+        const inner = (m[1] || m[2] || "").replace(/\\_/g, "_");
         let im: RegExpExecArray | null;
         while ((im = identifierRegex.exec(inner)) !== null) {
             if (!IGNORED_TOKENS.has(im[0])) tokens.add(im[0]);
@@ -74,7 +75,9 @@ if (fs.existsSync(mainTexPath)) {
     // 2c. \begin{lstlisting} ... \end{lstlisting}
     const lstlistingRegex = /\\begin\{lstlisting\}([\s\S]*?)\\end\{lstlisting\}/g;
     while ((m = lstlistingRegex.exec(mainTexContent)) !== null) {
-        const inner = m[1];
+        let inner = m[1];
+        // Strip comments so prose in code comments is not checked as identifiers
+        inner = inner.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
         let im: RegExpExecArray | null;
         while ((im = identifierRegex.exec(inner)) !== null) {
             if (!IGNORED_TOKENS.has(im[0])) tokens.add(im[0]);
@@ -182,12 +185,92 @@ for (const token of Array.from(tokens).sort()) {
     }
 }
 
+// 5. Verify code excerpts in slides/main.tex
+interface ListingMiss {
+    file: string | null;
+    line: string;
+    blockIndex: number;
+}
+
+const listingMisses: ListingMiss[] = [];
+let totalListingBlocksChecked = 0;
+let totalListingLinesChecked = 0;
+
+if (fs.existsSync(mainTexPath)) {
+    const mainTexContent = fs.readFileSync(mainTexPath, "utf-8");
+    const blockRegex = /\\begin\{(?:lstlisting|minted)\}(?:\[[^\]]*\])?(?:\{[^}]*\})?([\s\S]*?)\\end\{(?:lstlisting|minted)\}/g;
+    let bMatch: RegExpExecArray | null;
+    let bIdx = 0;
+
+    while ((bMatch = blockRegex.exec(mainTexContent)) !== null) {
+        bIdx++;
+        const rawContent = bMatch[1];
+        const lines = rawContent.split(/\r?\n/);
+        const firstNonEmpty = lines.find((l) => l.trim().length > 0);
+        if (!firstNonEmpty) continue;
+
+        const headerMatch = firstNonEmpty.trim().match(/^\/\/\s*(lib\/[^\s:]+)/);
+        if (!headerMatch) continue;
+
+        totalListingBlocksChecked++;
+        let currentFile: string | null = null;
+        let fileLinesNorm: Set<string> = new Set();
+
+        for (const rawLine of lines) {
+            const trimmed = rawLine.trim();
+            if (!trimmed) continue;
+
+            const fileMatch = trimmed.match(/^\/\/\s*(lib\/[^\s:]+)/);
+            if (fileMatch) {
+                currentFile = fileMatch[1];
+                const fullPath = path.resolve(process.cwd(), currentFile);
+                if (fs.existsSync(fullPath)) {
+                    const content = fs.readFileSync(fullPath, "utf-8");
+                    fileLinesNorm = new Set(
+                        content.split(/\r?\n/).map((l) => l.trim().replace(/\s+/g, " "))
+                    );
+                } else {
+                    fileLinesNorm = new Set();
+                    listingMisses.push({
+                        file: currentFile,
+                        line: `[FILE NOT FOUND: ${currentFile}]`,
+                        blockIndex: bIdx,
+                    });
+                }
+                continue;
+            }
+
+            if (trimmed === "// ...") {
+                continue;
+            }
+
+            if (trimmed.startsWith("//") || trimmed.startsWith("/*") || trimmed.startsWith("*")) {
+                continue;
+            }
+
+            totalListingLinesChecked++;
+            const norm = trimmed.replace(/\s+/g, " ");
+            if (!currentFile || !fileLinesNorm.has(norm)) {
+                listingMisses.push({
+                    file: currentFile,
+                    line: norm,
+                    blockIndex: bIdx,
+                });
+            }
+        }
+    }
+}
+
 console.log("==========================================");
 console.log(`ANTI-DRIFT IDENTIFIER CHECK`);
 console.log("==========================================");
 console.log(`Total unique identifiers checked: ${tokens.size}`);
 console.log(`Found in lib/, app/, components/: ${found.length}`);
 console.log(`Not found in codebase:             ${notFound.length}`);
+console.log("------------------------------------------");
+console.log(`Listing blocks checked:            ${totalListingBlocksChecked}`);
+console.log(`Listing lines checked:             ${totalListingLinesChecked}`);
+console.log(`Listing line misses:               ${listingMisses.length}`);
 console.log("==========================================");
 
 if (notFound.length > 0) {
@@ -197,4 +280,17 @@ if (notFound.length > 0) {
     }
 } else {
     console.log("\nAll identifiers found in code!");
+}
+
+if (listingMisses.length > 0) {
+    console.log("\nLISTING EXCERPT MISSES IN main.tex:");
+    for (const miss of listingMisses) {
+        console.log(`  [Block ${miss.blockIndex} -> ${miss.file}]: "${miss.line}"`);
+    }
+} else {
+    console.log("All code listings verbatim match source files!");
+}
+
+if (notFound.length > 0 || listingMisses.length > 0) {
+    process.exit(1);
 }

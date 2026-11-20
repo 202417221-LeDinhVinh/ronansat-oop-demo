@@ -1,0 +1,58 @@
+classDiagram
+    direction LR
+
+    class BaseController {
+        <<abstract>>
+        +handle(req, context) Promise
+    }
+
+    class HttpErrorMapper {
+        +map(error)$ NextResponse
+    }
+
+    class DomainError {
+        <<abstract>>
+        +message: string
+        +name: string
+    }
+
+    class ValidationError {
+        +status: 400
+    }
+
+    class UnauthorizedError {
+        +status: 401
+    }
+
+    class ForbiddenError {
+        +status: 403
+    }
+
+    class NotFoundError {
+        +status: 404
+    }
+
+    class ConflictError {
+        +status: 409
+    }
+
+    class InvariantViolationError {
+        +status: 422
+    }
+
+    class PersistenceError {
+        +cause: unknown
+        +status: 500
+        +wrap(operation, cause)$ PersistenceError
+    }
+
+    BaseController ..> HttpErrorMapper
+    HttpErrorMapper ..> DomainError
+
+    DomainError <|-- ValidationError
+    DomainError <|-- UnauthorizedError
+    DomainError <|-- ForbiddenError
+    DomainError <|-- NotFoundError
+    DomainError <|-- ConflictError
+    DomainError <|-- InvariantViolationError
+    DomainError <|-- PersistenceError

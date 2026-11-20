@@ -1,0 +1,40 @@
+classDiagram
+    direction TB
+
+    class BaseController {
+        <<abstract>>
+        +handle(req, context) Promise
+    }
+
+    class HttpErrorMapper {
+        +map(error)$ NextResponse
+    }
+
+    note for HttpErrorMapper "Validation 400, Unauthorized 401, Forbidden 403, NotFound 404, Conflict 409, InvariantViolation 422, Persistence 500 (opaque), other DomainError 400"
+
+    class DomainError {
+        <<abstract>>
+        +message: string
+        +name: string
+    }
+
+    class ValidationError
+    class UnauthorizedError
+    class ForbiddenError
+    class NotFoundError
+    class ConflictError
+    class InvariantViolationError
+    class PersistenceError {
+        +wrap(operation, cause)$ PersistenceError
+    }
+
+    BaseController ..> HttpErrorMapper
+    HttpErrorMapper ..> DomainError
+
+    DomainError <|-- ValidationError
+    DomainError <|-- UnauthorizedError
+    DomainError <|-- ForbiddenError
+    DomainError <|-- NotFoundError
+    DomainError <|-- ConflictError
+    DomainError <|-- InvariantViolationError
+    DomainError <|-- PersistenceError

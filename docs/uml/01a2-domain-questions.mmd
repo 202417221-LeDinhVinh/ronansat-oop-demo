@@ -1,6 +1,46 @@
 classDiagram
     direction LR
 
+    class Gradable {
+        <<interface>>
+        +isCorrect(userAnswer)* boolean
+    }
+
+    class Describable {
+        <<interface>>
+        +describe()* string
+    }
+
+    class Comparable~Question~ {
+        <<interface>>
+        +compareTo(other)* number
+    }
+
+    class Question {
+        <<abstract>>
+        #_testId: string
+        #_section: string
+        #_module: number
+        +testId() string
+        +questionType()* QuestionType
+        +isCorrect(userAnswer)* boolean
+        +describe() string
+        +compareTo(other) number
+    }
+
+    class MultipleChoiceQuestion {
+        -_choices: string[]
+        -_correctAnswer: string
+        +choices() string[]
+        +isCorrect(userAnswer) boolean
+    }
+
+    class StudentProducedResponseQuestion {
+        -_acceptedAnswers: string[]
+        +acceptedAnswers() string[]
+        +isCorrect(userAnswer) boolean
+    }
+
     class Test {
         -_title: string
         -_timeLimit: number
@@ -17,30 +57,12 @@ classDiagram
         +timeLimit() number
     }
 
-    class Question {
-        <<abstract>>
-        #_testId: string
-        #_section: string
-        #_module: number
-        +testId() string
-        +questionType()* QuestionType
-        +isCorrect(userAnswer)* boolean
-    }
+    Gradable <|.. Question
+    Describable <|.. Question
+    Comparable <|.. Question
 
-    class MultipleChoiceQuestion {
-        -_choices: string[]
-        -_correctAnswer: string
-        +choices() string[]
-        +isCorrect(userAnswer) boolean
-    }
-
-    class StudentProducedResponseQuestion {
-        -_acceptedAnswers: string[]
-        +acceptedAnswers() string[]
-        +isCorrect(userAnswer) boolean
-    }
-
-    Test "1" *-- "1..*" Section : sections
-    Test "1" --> "0..*" Question : questions
     Question <|-- MultipleChoiceQuestion
     Question <|-- StudentProducedResponseQuestion
+
+    Test "1" *-- "1..*" Section
+    Test "1" o-- "0..*" Question

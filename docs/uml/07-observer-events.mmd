@@ -1,0 +1,46 @@
+classDiagram
+    direction TB
+
+    class Container {
+        +eventBus: DomainEventBus
+        +practiceService: PracticeService
+    }
+
+    class PracticeService {
+        -eventBus: DomainEventBus
+        +submitAttempt(attemptId, userId) Promise
+    }
+
+    class AttemptSubmittedEvent {
+        +attempt: Attempt
+        +questions: Question[]
+        +occurredAt: Date
+    }
+
+    class DomainEventBus~TEvents~ {
+        -handlers: Map
+        +subscribe(type, handler) void
+        +publish(type, event) Promise
+    }
+
+    class EventHandler~TEvent~ {
+        <<interface>>
+        +handle(event)* Promise
+    }
+
+    class StudentProgressHandler {
+        -userRepo: IUserRepository
+        +handle(event) Promise
+    }
+
+    class ErrorLogProjector {
+        -errorLogRepo: IErrorLogRepository
+        +handle(event) Promise
+    }
+
+    Container ..> DomainEventBus
+    PracticeService --> DomainEventBus
+    PracticeService ..> AttemptSubmittedEvent
+    DomainEventBus ..> EventHandler
+    EventHandler <|.. StudentProgressHandler
+    EventHandler <|.. ErrorLogProjector

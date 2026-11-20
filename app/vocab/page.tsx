@@ -388,7 +388,7 @@ export default function VocabPage() {
           {/* Top Header Group */}
           <div>
             <div className="flex w-full items-center justify-between gap-4 rounded-[var(--ui-radius)] border border-border bg-surface-white px-5 py-3.5 brutal-shadow-sm">
-              <div>
+              <div className="min-w-0">
                 <div className="text-[12px] font-semibold text-ink-muted">
                   {selectedDeck?.title || "SAT Vocabulary Flashcard Review"}
                 </div>
@@ -398,7 +398,7 @@ export default function VocabPage() {
               </div>
 
               <div className="flex items-center gap-3">
-                <span className="font-mono text-xs font-bold px-2.5 py-1 rounded-[var(--ui-radius-sm)] bg-brand-tint border border-[#ecd49d] text-brand-strong">
+                <span className="whitespace-nowrap shrink-0 font-mono text-xs font-bold px-2.5 py-1 rounded-[var(--ui-radius-sm)] bg-brand-tint border border-[#ecd49d] text-brand-strong">
                   Box {currentCard?.box || 1}
                 </span>
                 <button
@@ -486,7 +486,7 @@ export default function VocabPage() {
                       <span className="font-semibold uppercase tracking-wider text-ink-muted">
                         Definition &amp; Context
                       </span>
-                      <span className="px-2.5 py-0.5 rounded-full border border-[#ecd49d] text-[11px] font-bold text-brand-strong bg-brand-tint">
+                      <span className="whitespace-nowrap shrink-0 px-2.5 py-0.5 rounded-full border border-[#ecd49d] text-[11px] font-bold text-brand-strong bg-brand-tint">
                         Box {currentCard?.box || 1}
                       </span>
                     </div>
@@ -837,7 +837,7 @@ export default function VocabPage() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <span className="font-mono text-xs font-bold text-brand-strong bg-brand-tint px-2.5 py-0.5 rounded-[var(--ui-radius-sm)] border border-[#ecd49d]">
+                      <span className="whitespace-nowrap shrink-0 font-mono text-xs font-bold text-brand-strong bg-brand-tint px-2.5 py-0.5 rounded-[var(--ui-radius-sm)] border border-[#ecd49d]">
                         Box {card.box}
                       </span>
                     </TableCell>

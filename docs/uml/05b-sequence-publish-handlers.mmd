@@ -1,0 +1,25 @@
+%%{init: {
+  "sequence": {
+    "mirrorActors": false
+  }
+}}%%
+sequenceDiagram
+    actor Student
+    participant C as SubmitAttemptController
+    participant S as PracticeService
+    participant B as DomainEventBus
+    participant PH as StudentProgressHandler
+    participant EP as ErrorLogProjector
+
+    Note over S: Scored attempt saved -- dispatch domain event
+    S->>B: publish("AttemptSubmitted", event)
+    activate B
+    B->>PH: handle(event)
+    Note over PH: instanceof Student guard & update progress
+    PH-->>B: Promise resolved
+    B->>EP: handle(event)
+    Note over EP: Deduplicate & project into ErrorLogEntry
+    EP-->>B: Promise resolved
+    deactivate B
+    S-->>C: savedAttempt
+    C-->>Student: 200 OK (Attempt)

@@ -1,4 +1,4 @@
-\documentclass[aspectratio=169,10pt,t]{beamer}
+﻿\documentclass[aspectratio=169,10pt,t]{beamer}
 
 % ==============================================================================
 % FONTS & PACKAGES
@@ -129,7 +129,10 @@
     MultipleChoiceQuestion, StudentProducedResponseQuestion, Attempt, AnswerRecord,
     ScaledScore, ScoringStrategy, FullLengthScoringStrategy, SectionalScoringStrategy,
     ScoringStrategyFactory, ErrorLogEntry, VocabDeck, VocabCard, ReviewScheduler,
-    LeitnerScheduler, BaseController, IRepository, MongoRepository, Clock, PasswordHasher, Container},
+    LeitnerScheduler, BaseController, IRepository, MongoRepository, Clock, PasswordHasher,
+    Container, DomainEventBus, EventHandler, AttemptSubmittedEvent, StudentProgressHandler,
+    ErrorLogProjector, Gradable, Describable, Comparable, Page, DomainError, PersistenceError,
+    HttpErrorMapper, CompleteSectionScores, CompleteRawCorrectCounts, ReviewGrade},
   ndkeywordstyle=\bfseries\color{accentred},
   identifierstyle=\color{textmain},
   sensitive=true,
@@ -150,155 +153,179 @@
   showspaces=false,
   showstringspaces=false,
   showtabs=false,
-  frame=none,
   tabsize=2,
-  breaklines=false,
-  breakatwhitespace=false
+  breaklines=true,
+  breakatwhitespace=true,
+  escapeinside={(*@}{@*)}
 }
 
 % ==============================================================================
-% DOCUMENT BODY
+% PRESENTATION DOCUMENT
 % ==============================================================================
 \begin{document}
+\usebgcontent
 
 % ------------------------------------------------------------------------------
 % SLIDE 1: TITLE SLIDE
 % ------------------------------------------------------------------------------
 \usebgtitle
 \begin{frame}[plain]
-  \vspace{13mm}
+  \vspace{12mm}
   \begin{center}
-    {\titlefont\bfseries\fontsize{17pt}{20pt}\selectfont\color{textmain} RonanSAT v2: Real OOP Architecture}\\[1.5mm]
-    {\fontsize{10pt}{12pt}\selectfont\color{textsec} Object-Oriented Modeling, Design Patterns \& Clean Architecture for Digital SAT}\\[3mm]
-    {\fontsize{8pt}{10pt}\selectfont\color{accentblue}\textbf{Object-Oriented Programming Lab | School of ICT -- HUST}}\\[1mm]
-    {\fontsize{8pt}{10pt}\selectfont\color{textsec} Presenter: \textbf{Le Vinh} -- 202417221 \quad|\quad Group 08}\\[5mm]
+    {\fontsize{7.5pt}{9pt}\selectfont\color{accentred}\textbf{HANOI UNIVERSITY OF SCIENCE AND TECHNOLOGY --- SCHOOL OF ICT}}\\[2mm]
+    {\titlefont\bfseries\fontsize{18pt}{22pt}\selectfont\color{textmain} RonanSAT: Real OOP Architecture}\\[1.5mm]
+    {\fontsize{10.5pt}{13pt}\selectfont\color{textsec} Clean Architecture, GoF Design Patterns \& IT3100E Syllabus Implementation}\\[4mm]
 
     \begin{tikzpicture}[
-      card/.style={draw=cardborder, fill=cardfill, rounded corners=1.8mm, line width=0.7pt, text width=42mm, minimum height=16mm, align=left, inner sep=1.8mm},
-      hlcard/.style={draw=hlborder, fill=hlfill, rounded corners=1.8mm, line width=1.0pt, text width=42mm, minimum height=16mm, align=left, inner sep=1.8mm},
-      arr/.style={->, >=Stealth, line width=1.2pt, color=textsec}
+      card/.style={draw=cardborder, fill=cardfill, rounded corners=1.8mm, line width=0.7pt, text width=38mm, minimum height=14mm, align=left, inner sep=2mm},
+      hlcard/.style={draw=hlborder, fill=hlfill, rounded corners=1.8mm, line width=1.0pt, text width=38mm, minimum height=14mm, align=left, inner sep=2mm}
     ]
-      \node[card] (c1) at (0,0) {{\bfseries\fontsize{7.5pt}{9pt}\selectfont\color{accentblue} 1. Domain Entities \& Pillars}\\[0.6mm]\fontsize{6.5pt}{7.5pt}\selectfont Encapsulation, Abstraction, Inheritance, and runtime Polymorphism};
-      \node[card] (c2) at (4.9,0) {{\bfseries\fontsize{7.5pt}{9pt}\selectfont\color{accentblue} 2. Layered Architecture}\\[0.6mm]\fontsize{6.5pt}{7.5pt}\selectfont BaseController, Application Services, Repository \& Ports};
-      \node[hlcard] (c3) at (9.8,0) {{\bfseries\fontsize{7.5pt}{9pt}\selectfont\color{accentred} 3. Verified Product \& Quality}\\[0.6mm]\fontsize{6.5pt}{7.5pt}\selectfont 64 Unit Tests, Leitner Vocab, Error Log retry \& Admin CRUD};
-      \draw[arr] (c1) -- (c2);
-      \draw[arr] (c2) -- (c3);
+      \node[card] (c1) at (0,0) {{\bfseries\fontsize{7.5pt}{9pt}\selectfont\color{accentblue} Real Domain OOP}\\[0.6mm]\fontsize{6.5pt}{7.5pt}\selectfont Encapsulation, Strategy scoring, SPR polymorphism \& Value Objects.};
+      \node[card] (c2) at (4.8,0) {{\bfseries\fontsize{7.5pt}{9pt}\selectfont\color{accentblue} Clean Architecture}\\[0.6mm]\fontsize{6.5pt}{7.5pt}\selectfont Thin Routes, Template BaseController, Domain Services, Repositories \& DI.};
+      \node[hlcard] (c3) at (9.6,0) {{\bfseries\fontsize{7.5pt}{9pt}\selectfont\color{accentred} Syllabus Coverage}\\[0.6mm]\fontsize{6.5pt}{7.5pt}\selectfont Ch.3--13: Observer bus, multiple interfaces, generics, exceptions \& 79 unit tests.};
     \end{tikzpicture}
+
+    \vspace{6mm}
+    {\fontsize{8pt}{10pt}\selectfont\color{textsec} Presenter: \textbf{Le Vinh} -- 202417221 \quad|\quad Group 08 \quad|\quad Course: IT3100E OOP Lab}
   \end{center}
 \end{frame}
+\usebgcontent
 
 % ------------------------------------------------------------------------------
-% SLIDE 2: PRODUCT & FEATURE OVERVIEW
+% SLIDE 2: EXECUTIVE SUMMARY & PRODUCT CONTEXT
 % ------------------------------------------------------------------------------
-\usebgcontent
-\begin{frame}{Product Overview: RonanSAT v2 Features}
+\begin{frame}{Product Overview: RonanSAT Features}
   \vspace{0.5mm}
   \begin{columns}[T]
-    \begin{column}{0.50\textwidth}
-      \begin{infoCard}{Student Learning \& Assessment Capabilities}
+    \begin{column}{0.48\textwidth}
+      \begin{infoCard}{Production SAT Preparation Platform}
         \begin{itemize}\setlength{\itemsep}{1.2pt}\setlength{\parskip}{0pt}\setlength{\leftmargini}{8pt}
-          \item \textbf{Digital SAT Practice:} Timed Full-Length (4 modules: R\&W M1/M2, Math M1/M2) and Sectional modes with embedded Desmos and LaTeX KaTeX formulas.
-          \item \textbf{Dual Question Engines:} Supports both Multiple Choice (MCQ) and Student-Produced Response (SPR, numeric/fraction equivalence).
-          \item \textbf{Automated Scaled Scoring:} Converts raw scores to 400--1600 composite and 200--800 section scores via dynamic Strategy pattern.
-          \item \textbf{Deduplicated Error Log:} Aggregates missed questions with mistake reason tags, notes, and inline retry with auto-resolve.
-          \item \textbf{Spaced Repetition Vocab:} Leitner 5-box flashcard study with 4 grades (Again, Hard, Good, Easy) and daily due counts.
+          \item \textbf{Dual Actor Workflows:} Dedicated portals for Students (practice, diagnostics) and Admins (exam creation, analytics).
+          \item \textbf{Standardized Digital Testing:} 4-module timed testing with live timer, section transitions, KaTeX formula rendering, and embedded Desmos graphing calculator.
+          \item \textbf{Dual Question Modalities:} Multiple-choice questions (MCQ) and Student-Produced Response (SPR) with numeric/fraction tolerance matching.
         \end{itemize}
       \end{infoCard}
     \end{column}
 
     \begin{column}{0.48\textwidth}
-      \begin{infoCard}{Administrative Management \& Security}
+      \begin{infoCard}{Targeted Remediation \& Vocab System}
         \begin{itemize}\setlength{\itemsep}{1.2pt}\setlength{\parskip}{0pt}\setlength{\leftmargini}{8pt}
-          \item \textbf{Admin Management Portal:} Role-Based Access Control (RBAC) protecting test/section creation, question editing, and user roles.
-          \item \textbf{Question Authoring:} Full passage editor, SPR accepted answers list, domain/skill tagging, and figure attachments.
-          \item \textbf{System Vocab Curation:} Create and publish verified SAT word decks for student study.
+          \item \textbf{Composite SAT Scoring:} Realistic raw-to-scaled score conversion (400--1600 composite; 200--800 section scores).
+          \item \textbf{Deduplicated Error Log:} Automatic error recording across exam attempts with taggable notes and instant inline retry practice.
+          \item \textbf{Spaced Repetition (Leitner):} SAT vocabulary mastery powered by 5-box scheduling algorithm with daily due-queue computation.
         \end{itemize}
       \end{infoCard}
-
-      \vspace{1.2mm}
-      \begin{hlCard}{Production Dataset \& Zero-Config Runtime}
-        Pre-seeded with \textbf{2 real SAT practice exams} (171 questions: 146 MCQs, 25 SPRs), student history with realistic score progression, and 80+ SAT vocabulary flashcards running completely offline via in-memory MongoDB.
-      \end{hlCard}
     \end{column}
   \end{columns}
+
+  \vspace{1.2mm}
+  \begin{hlCard}{Preloaded Production Dataset}
+    Shipped with \textbf{2 real official SAT practice exams} (171 categorized questions with complete explanations) and runs offline via in-memory MongoDB.
+  \end{hlCard}
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% SLIDE 3: TECH STACK ARCHITECTURE
+% SLIDE 3: TECH STACK & ARCHITECTURAL FOUNDATION
 % ------------------------------------------------------------------------------
 \begin{frame}{Technology Stack \& Architectural Standards}
-  \vspace{0.3mm}
-  \begin{columns}[T,onlytextwidth]
-    \begin{column}{0.50\textwidth}
-      \begin{infoCard}{Technology Stack Matrix}
-        \setlength{\tabcolsep}{1.5pt}
-        \fontsize{5.2pt}{6.4pt}\selectfont
-        \renewcommand{\arraystretch}{1.05}
-        \begin{tabular}{@{}p{12.5mm}p{18.5mm}p{31mm}@{}}
-          \toprule
-          \textbf{Layer} & \textbf{Framework} & \textbf{Role \& Responsibility} \\
-          \midrule
-          \textbf{Frontend} & Next.js 16, React 19 & App Router Server/Client Components \\
-          \textbf{Styling} & Tailwind CSS v4 & Warm Studio design tokens \& cards \\
-          \textbf{Math \& Sec} & KaTeX, DOMPurify & LaTeX mathematical formula rendering \\
-          \textbf{HTTP API} & Next.js Handlers & Thin delegation to OOP Controllers \\
-          \textbf{Application} & TypeScript Classes & Domain services \& constructor DI \\
-          \textbf{Persistence} & Mongoose 9.2 & Memory Server; zero cloud setup \\
-          \textbf{Auth \& Valid} & NextAuth 4, Zod 4 & JWT credentials \& payload validation \\
-          \bottomrule
-        \end{tabular}
+  \vspace{0.5mm}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \begin{infoCard}{Modern Full-Stack Technologies}
+        \begin{itemize}\setlength{\itemsep}{1.2pt}\setlength{\parskip}{0pt}\setlength{\leftmargini}{8pt}
+          \item \textbf{Framework:} Next.js 16 (App Router) with React 19 and Tailwind CSS v4 using the custom Warm Studio visual design system.
+          \item \textbf{Language:} TypeScript 5 under strict mode (\texttt{strict: true}), zero \texttt{any} types in domain code.
+          \item \textbf{Persistence:} Mongoose 9 / MongoDB with \texttt{mongodb-memory-server} for deterministic zero-dependency execution.
+          \item \textbf{Quality Assurance:} Vitest 5 with 79 fast in-memory unit tests; ESLint for code style enforcement.
+        \end{itemize}
       \end{infoCard}
     \end{column}
 
     \begin{column}{0.48\textwidth}
-      \begin{infoCard}{Engineering Constraints \& Standards}
+      \begin{infoCard}{Clean Architecture Standards}
         \begin{itemize}\setlength{\itemsep}{1.2pt}\setlength{\parskip}{0pt}\setlength{\leftmargini}{8pt}
-          \item \textbf{Strict TypeScript Discipline:} \texttt{strict: true} across entire repository. Zero \texttt{any} types inside \texttt{lib/domain} and \texttt{lib/application}.
-          \item \textbf{Self-Hosted Offline Assets:} Typography bundled via \texttt{@fontsource/*} (Bricolage Grotesque, DM Sans, Geist Mono). Local figure graphics in \texttt{public/demo-figures/}.
-          \item \textbf{Thin Route Pattern:} Route handlers contain 1--5 lines delegating to controller instances from the Composition Root. No business logic in routes or UI components.
-          \item \textbf{Dependency Inversion Principle (DIP):} Domain and Application layers depend exclusively on port interfaces, never on Mongoose or external drivers.
+          \item \textbf{Thin Route Pattern:} Next.js route handlers contain 1--5 lines of code, delegating all HTTP lifecycle management to OOP Controllers.
+          \item \textbf{Layer Supertype:} \texttt{BaseController} encapsulates authentication, authorization, schema validation, and error translation.
+          \item \textbf{Pure Domain Entities:} Domain classes contain pure business logic with zero framework or database dependencies.
+          \item \textbf{Port-and-Adapter Isolation:} All infrastructure components implement domain repository and driver interfaces.
         \end{itemize}
       \end{infoCard}
     \end{column}
   \end{columns}
+
+  \vspace{1.2mm}
+  \begin{hlCard}{Architectural Integrity}
+    Zero direct calls to Mongoose from application services; dependencies always point inward toward high-level business rules.
+  \end{hlCard}
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% SLIDE 4: SYSTEM LAYERED ARCHITECTURE
+% SLIDE 4: LAYERED ARCHITECTURE OVERVIEW
 % ------------------------------------------------------------------------------
 \begin{frame}{Layered Architecture: Separation of Concerns}
-  \vspace{1mm}
-  \begin{center}
-    \begin{tikzpicture}[
-      layer/.style={draw=cardborder, fill=cardfill, rounded corners=1.5mm, line width=0.6pt, text width=29mm, minimum height=17mm, align=left, inner sep=1.6mm},
-      hllayer/.style={draw=hlborder, fill=hlfill, rounded corners=1.5mm, line width=0.9pt, text width=29mm, minimum height=17mm, align=left, inner sep=1.6mm},
-      arr/.style={->, >=Stealth, line width=1.1pt, color=textsec}
-    ]
-      \node[layer] (l1) at (0,0) {{\bfseries\fontsize{7.5pt}{8.8pt}\selectfont\color{accentblue} 1. HTTP Layer}\\[0.6mm]\fontsize{6.2pt}{7.2pt}\selectfont \textbf{lib/http/}\\[0.4mm]BaseController (Template Method), auth checks, Zod parsing};
-      \node[hllayer] (l2) at (3.55,0) {{\bfseries\fontsize{7.5pt}{8.8pt}\selectfont\color{accentred} 2. Application Layer}\\[0.6mm]\fontsize{6.2pt}{7.2pt}\selectfont \textbf{lib/application/}\\[0.4mm]Use cases as Services, Constructor DI, Ports (IRepository, Clock)};
-      \node[layer] (l3) at (7.10,0) {{\bfseries\fontsize{7.5pt}{8.8pt}\selectfont\color{accentblue} 3. Domain Layer}\\[0.6mm]\fontsize{6.2pt}{7.2pt}\selectfont \textbf{lib/domain/}\\[0.4mm]Pure TypeScript entities, ValueObjects, ScoringStrategy};
-      \node[layer] (l4) at (10.65,0) {{\bfseries\fontsize{7.5pt}{8.8pt}\selectfont\color{accentblue} 4. Infrastructure}\\[0.6mm]\fontsize{6.2pt}{7.2pt}\selectfont \textbf{lib/infrastructure/}\\[0.4mm]MongoRepository (Template Method), InMemory repos, Bcrypt};
-
-      \draw[arr] (l1) -- (l2);
-      \draw[arr] (l2) -- (l3);
-      \draw[arr] (l3) -- (l4);
-    \end{tikzpicture}
-  \end{center}
-
-  \vspace{1.5mm}
+  \vspace{0.2mm}
   \begin{columns}[T]
-    \begin{column}{0.48\textwidth}
-      \begin{infoCard}{Unidirectional Inverted Flow}
-        Controllers invoke application service contracts. Services orchestrate domain entities and interact with persistence through abstract port interfaces (\texttt{IAttemptRepository}, \texttt{Clock}), eliminating tight database coupling.
+    \begin{column}{0.24\textwidth}
+      \begin{infoCard}{1. Presentation}
+        \textbf{HTTP Controllers}\\[0.6mm]
+        \fontsize{5.8pt}{7.0pt}\selectfont
+        \begin{itemize}\setlength{\itemsep}{1pt}\setlength{\parskip}{0pt}\setlength{\leftmargini}{6pt}
+          \item \texttt{BaseController}
+          \item Thin route handlers
+          \item Zod DTO validation
+          \item NextAuth session auth
+          \item Status code mapping
+        \end{itemize}
       \end{infoCard}
     \end{column}
 
-    \begin{column}{0.48\textwidth}
-      \begin{hlCard}{Composition Root (Container Singleton)}
-        \texttt{Container} in \texttt{lib/container.ts} acts as the single composition root: constructing repositories, hashing adapters, services, and controllers in dependency order once at bootstrap.
-      \end{hlCard}
+    \begin{column}{0.24\textwidth}
+      \begin{infoCard}{2. Application}
+        \textbf{Use Case Services}\\[0.6mm]
+        \fontsize{5.8pt}{7.0pt}\selectfont
+        \begin{itemize}\setlength{\itemsep}{1pt}\setlength{\parskip}{0pt}\setlength{\leftmargini}{6pt}
+          \item \texttt{PracticeService}
+          \item \texttt{TestService}
+          \item \texttt{ResultService}
+          \item \texttt{VocabService}
+          \item \texttt{AuthService} / \texttt{Admin}
+        \end{itemize}
+      \end{infoCard}
+    \end{column}
+
+    \begin{column}{0.24\textwidth}
+      \begin{infoCard}{3. Domain}
+        \textbf{Core Business Logic}\\[0.6mm]
+        \fontsize{5.8pt}{7.0pt}\selectfont
+        \begin{itemize}\setlength{\itemsep}{1pt}\setlength{\parskip}{0pt}\setlength{\leftmargini}{6pt}
+          \item \texttt{Attempt}, \texttt{Test}, \texttt{User}
+          \item \texttt{Question} hierarchy
+          \item \texttt{ScoringStrategy}
+          \item \texttt{DomainEventBus}
+          \item Value Objects
+        \end{itemize}
+      \end{infoCard}
+    \end{column}
+
+    \begin{column}{0.24\textwidth}
+      \begin{infoCard}{4. Infrastructure}
+        \textbf{Data \& Adapters}\\[0.6mm]
+        \fontsize{5.8pt}{7.0pt}\selectfont
+        \begin{itemize}\setlength{\itemsep}{1pt}\setlength{\parskip}{0pt}\setlength{\leftmargini}{6pt}
+          \item \texttt{MongoRepository}
+          \item \texttt{InMemoryRepository}
+          \item Mongoose Models
+          \item \texttt{BcryptPasswordHasher}
+          \item \texttt{SystemClock}
+        \end{itemize}
+      \end{infoCard}
     \end{column}
   \end{columns}
+
+  \vspace{0.8mm}
+  \begin{hlCard}{Composition Root: Centralized Dependency Injection}
+    \texttt{Container} singleton (\texttt{lib/container.ts}) instantiates all repositories, services, event subscribers, and controllers at bootstrap time.
+  \end{hlCard}
 \end{frame}
 
 % ------------------------------------------------------------------------------
@@ -307,9 +334,9 @@
 \begin{frame}{Layered Architecture: Practice \& Vocab Controllers \& Services}
   \vspace{-1.5mm}
   \centering
-  \includegraphics[width=\textwidth,height=66mm,keepaspectratio]{assets/03a1-layered-practice-vocab.png}\par
+  \includegraphics[width=\textwidth,height=65mm,keepaspectratio]{assets/03a1-layered-practice-vocab.png}\par
   \vspace{0.4mm}
-  {\fontsize{6.2pt}{7.2pt}\selectfont\color{textsec}\textbf{HTTP \& Service Tier:} \texttt{BaseController} Template Method dispatches requests to constructor-injected \texttt{PracticeService} and \texttt{VocabService}.}
+  {\fontsize{6.2pt}{7.2pt}\selectfont\color{textsec}\textbf{Design Pattern:} Template Method in \texttt{BaseController.handle()} delegating to \texttt{PracticeService} and \texttt{VocabService} via Constructor DI.}
 \end{frame}
 
 % ------------------------------------------------------------------------------
@@ -318,365 +345,343 @@
 \begin{frame}{Layered Architecture: Auth \& Administration Controllers \& Services}
   \vspace{-1.5mm}
   \centering
-  \includegraphics[width=\textwidth,height=66mm,keepaspectratio]{assets/03a2-layered-auth-admin.png}\par
+  \includegraphics[width=\textwidth,height=65mm,keepaspectratio]{assets/03a2-layered-auth-admin.png}\par
   \vspace{0.4mm}
-  {\fontsize{6.2pt}{7.2pt}\selectfont\color{textsec}\textbf{Administrative Tier:} \texttt{RegisterController}, \texttt{AdminTestsController}, and \texttt{AdminMetricsController} invoke application services.}
+  {\fontsize{6.2pt}{7.2pt}\selectfont\color{textsec}\textbf{Security Enforcement:} Role-Based Access Control (RBAC) enforced within \texttt{BaseController.authorize()} prior to use case execution.}
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% SLIDE 7: UML PERSISTENCE & REPOSITORY ARCHITECTURE
+% SLIDE 7: UML PERSISTENCE ARCHITECTURE
 % ------------------------------------------------------------------------------
 \begin{frame}{Persistence Architecture: Generic Repositories, Ports \& Container}
   \vspace{-1.5mm}
   \centering
-  \includegraphics[width=\textwidth,height=66mm,keepaspectratio]{assets/03b-repository-architecture.png}\par
+  \includegraphics[width=\textwidth,height=65mm,keepaspectratio]{assets/03b-repository-architecture.png}\par
   \vspace{0.4mm}
-  {\fontsize{6.2pt}{7.2pt}\selectfont\color{textsec}\textbf{Persistence Tier:} Generic \texttt{IRepository<T, TId>} hierarchy implemented by \texttt{MongoRepository} and \texttt{InMemoryUserRepository}; wired by \texttt{Container}.}
+  {\fontsize{6.2pt}{7.2pt}\selectfont\color{textsec}\textbf{Dependency Inversion Principle:} Application services consume abstract ports (\texttt{IRepository}, \texttt{Clock}); \texttt{Container} wires concrete adapters.}
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% SLIDE 8: UML SYSTEM USE CASE - STUDENT
+% SLIDE 8: UML USE CASE - STUDENT
 % ------------------------------------------------------------------------------
 \begin{frame}{System Use Case Model: Student Practice, Error Log \& Vocab Lifecycle}
   \vspace{-1.5mm}
   \centering
-  \includegraphics[width=\textwidth,height=66mm,keepaspectratio]{assets/04a-use-case-student.png}\par
+  \includegraphics[width=\textwidth,height=65mm,keepaspectratio]{assets/04a-use-case-student.png}\par
   \vspace{0.4mm}
-  {\fontsize{6.2pt}{7.2pt}\selectfont\color{textsec}\textbf{Student Workflows:} Practice sitting execution, KaTeX/Desmos tools, scoring, deduplicated error log retry, and Leitner flashcards.}
+  {\fontsize{6.2pt}{7.2pt}\selectfont\color{textsec}\textbf{Actor Capabilities:} Student completes full-length or sectional SAT tests, reviews mistakes in Error Log, and practices vocabulary flashcards.}
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% SLIDE 9: UML SYSTEM USE CASE - ADMIN
+% SLIDE 9: UML USE CASE - ADMIN
 % ------------------------------------------------------------------------------
 \begin{frame}{System Use Case Model: Platform Administration \& Content Workflows}
   \vspace{-1.5mm}
   \centering
-  \includegraphics[width=\textwidth,height=66mm,keepaspectratio]{assets/04b-use-case-admin.png}\par
+  \includegraphics[width=\textwidth,height=65mm,keepaspectratio]{assets/04b-use-case-admin.png}\par
   \vspace{0.4mm}
-  {\fontsize{6.2pt}{7.2pt}\selectfont\color{textsec}\textbf{Admin Workflows:} Platform metrics monitoring, test timer configuration, MCQ/SPR question authoring, RBAC, and vocab curating.}
+  {\fontsize{6.2pt}{7.2pt}\selectfont\color{textsec}\textbf{Admin Capabilities:} Academic managers oversee system health metrics, manage users, and curate exams and vocabulary decks.}
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% SLIDE 10: OOP PILLAR 1: ENCAPSULATION
+% SLIDE 10: OOP PILLAR 1 - ENCAPSULATION
 % ------------------------------------------------------------------------------
 \begin{frame}[fragile]{OOP Pillar 1: Encapsulation \& Invariant Protection}
-  \vspace{0.2mm}
-  \begin{columns}[T]
-    \begin{column}{0.48\textwidth}
-      \begin{infoCard}{Encapsulation Mechanisms in v2}
-        \begin{itemize}\setlength{\itemsep}{0.4pt}\setlength{\parskip}{0pt}\setlength{\leftmargini}{7pt}
-          \item \textbf{Private State:} Fields hidden behind \texttt{private} properties (\texttt{\_status}, \texttt{\_answers}, \texttt{\_score}) accessible only via getters.
-          \item \textbf{Domain Invariants:} Cannot answer after submission; cannot submit twice. Throws \texttt{InvariantViolationError}.
-          \item \textbf{Value Objects:} \texttt{ScaledScore} bounds total (400--1600 or 200--800); \texttt{Email} validates syntax.
-        \end{itemize}
-        \vspace{0.4mm}
-        \fontsize{5.2pt}{6.2pt}\selectfont
-        \begin{tabular}{@{}ll@{}}
-          \toprule
-          \textbf{UML Element} & \textbf{Encapsulation Rule} \\
-          \midrule
-          \texttt{-\_status: AttemptStatus} & Private state; locked upon submit \\
-          \texttt{+recordAnswer(q, a, ok)} & Mutates answers with invariant check \\
-          \texttt{+submit(strategy, q)} & One-time scoring lifecycle \\
-          \bottomrule
-        \end{tabular}
-      \end{infoCard}
-    \end{column}
-
-    \begin{column}{0.50\textwidth}
+  \vspace{-1.0mm}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.54\textwidth}
       \begin{codeBox}
-\lstset{basicstyle=\fontsize{4.9pt}{5.9pt}\ttfamily}
 \begin{lstlisting}
-// lib/domain/attempt/Attempt.ts: Invariant enforcement
-public recordAnswer(
-  qId: string, ans: string, isCorrect: boolean
-): void {
-  if (this._status === "submitted") {
-    throw new InvariantViolationError(
-      "Cannot record answer on a submitted attempt"
-    );
+// lib/domain/attempt/Attempt.ts
+export class Attempt extends Entity<string> {
+  private _status: AttemptStatus;
+  private _answers: AnswerRecord[];
+  // ...
+  public recordAnswer(
+    questionId: string,
+    userAnswer: string,
+    isCorrect: boolean,
+    answeredAt: Date = new Date()
+  ): void {
+    if (this._status === "submitted") {
+      throw new InvariantViolationError("Cannot record answer on a submitted attempt");
+    }
+    // ...
+    this._answers.push(record);
   }
-  const idx = this._answers.findIndex(
-    (a) => a.questionId === qId
-  );
-  const rec = new AnswerRecord(qId, ans, isCorrect);
-  if (idx >= 0) this._answers[idx] = rec;
-  else this._answers.push(rec);
 }
 \end{lstlisting}
       \end{codeBox}
     \end{column}
+
+    \begin{column}{0.44\textwidth}
+      \begin{infoCard}{Encapsulation Mechanisms}
+        \begin{itemize}\setlength{\itemsep}{1.2pt}\setlength{\parskip}{0pt}\setlength{\leftmargini}{7pt}
+          \item \textbf{Private State:} Fields (\texttt{\_status}, \texttt{\_answers}, \texttt{\_score}) are inaccessible from outside; read-only getters provide controlled visibility.
+          \item \textbf{Business Invariants:} State mutations enforce strict validation (e.g., throwing \texttt{InvariantViolationError} on answers to finished exams).
+          \item \textbf{Value Objects:} \texttt{ScaledScore} and \texttt{Email} validate boundaries in their constructors, preventing invalid objects from existing.
+        \end{itemize}
+      \end{infoCard}
+    \end{column}
   \end{columns}
 
-  \vspace{0.3mm}
-  \begin{hlCard}{Encapsulation Principle}
-    \fontsize{5.6pt}{6.6pt}\selectfont
-    Entities protect internal state boundaries. Clients cannot corrupt attempt records or inject invalid scores from outside the domain model.
+  \vspace{0.8mm}
+  \begin{hlCard}{Architectural Impact}
+    Aggregate state is modified only through intention-revealing methods, preserving consistency boundaries across test submissions.
   \end{hlCard}
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% SLIDE 11: OOP PILLAR 2: ABSTRACTION
+% SLIDE 11: OOP PILLAR 2 - ABSTRACTION
 % ------------------------------------------------------------------------------
 \begin{frame}[fragile]{OOP Pillar 2: Abstraction via Decoupled Contracts}
-  \vspace{0.2mm}
-  \begin{columns}[T]
-    \begin{column}{0.48\textwidth}
-      \begin{infoCard}{Contract-Driven Architecture}
-        \begin{itemize}\setlength{\itemsep}{0.4pt}\setlength{\parskip}{0pt}\setlength{\leftmargini}{7pt}
-          \item \textbf{Port Interfaces:} \texttt{IRepository<T, TId>}, \texttt{ScoringStrategy}, \texttt{ReviewScheduler}, \texttt{Clock}, \texttt{PasswordHasher}.
-          \item \textbf{Dependency Inversion:} Services depend on high-level contracts rather than low-level database drivers.
-          \item \textbf{Pluggable Drivers:} Swap \texttt{SystemClock} with fixed clock in unit tests; swap \texttt{MongoRepository} with \texttt{InMemoryUserRepository}.
-        \end{itemize}
-        \vspace{0.4mm}
-        \fontsize{5.2pt}{6.2pt}\selectfont
-        \begin{tabular}{@{}ll@{}}
-          \toprule
-          \textbf{Port Interface} & \textbf{Contract Responsibility} \\
-          \midrule
-          \texttt{<<interface>> ScoringStrategy} & Polymorphic attempt grading \\
-          \texttt{<<interface>> IRepository<T>} & Abstract persistence operations \\
-          \texttt{<<interface>> Clock} & Deterministic time provider \\
-          \bottomrule
-        \end{tabular}
-      \end{infoCard}
-    \end{column}
-
-    \begin{column}{0.50\textwidth}
+  \vspace{-1.0mm}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.54\textwidth}
       \begin{codeBox}
-\lstset{basicstyle=\fontsize{4.9pt}{5.9pt}\ttfamily}
 \begin{lstlisting}
-// lib/domain/scoring/ScoringStrategy.ts: Strategy Port
-export interface ScoringStrategy {
-  score(attempt: Attempt, questions: Question[]): ScaledScore;
-}
-
-// lib/application/services/PracticeService.ts: constructor port injection
+// lib/application/services/PracticeService.ts
 export class PracticeService {
   public constructor(
     private readonly attemptRepo: IAttemptRepository,
-    private readonly questionRepo: IQuestionRepository,
-    private readonly clock: Clock
+    // ...
+    private readonly clock: Clock,
+    private readonly eventBus: DomainEventBus<DomainEvents>
   ) {}
-}
-\end{lstlisting}
-      \end{codeBox}
-    \end{column}
-  \end{columns}
 
-  \vspace{0.3mm}
-  \begin{hlCard}{Abstraction Principle}
-    \fontsize{5.6pt}{6.6pt}\selectfont
-    High-level business policies do not import database drivers or hardware clocks. Operational behavior is decoupled behind pure TypeScript interfaces.
-  \end{hlCard}
-\end{frame}
-
-% ------------------------------------------------------------------------------
-% SLIDE 12: OOP PILLAR 3: INHERITANCE
-% ------------------------------------------------------------------------------
-\begin{frame}[fragile]{OOP Pillar 3: Inheritance \& Template Method Hierarchy}
-  \vspace{0.2mm}
-  \begin{columns}[T,onlytextwidth]
-    \begin{column}{0.48\textwidth}
-      \begin{infoCard}{Class Inheritance in RonanSAT v2}
-        \begin{itemize}\setlength{\itemsep}{0.2pt}\setlength{\parskip}{0pt}\setlength{\leftmargini}{7pt}
-          \item \textbf{Entity Base Class:} \texttt{Entity<TId>} encapsulates identity equality (\texttt{equals()}) inherited by domain entities.
-          \item \textbf{Question Hierarchy:} \texttt{abstract class Question} extended by \texttt{MultipleChoiceQuestion} and \texttt{StudentProducedResponseQuestion}.
-          \item \textbf{Template Method:} \texttt{BaseController} handles HTTP auth/validation, invoking subclass \texttt{execute()}.
-        \end{itemize}
-        \vspace{0.3mm}
-        \setlength{\tabcolsep}{2pt}
-        \fontsize{5.2pt}{6.2pt}\selectfont
-        \begin{tabular}{@{}ll@{}}
-          \toprule
-          \textbf{Base Type} & \textbf{Specialized Concrete Subtypes} \\
-          \midrule
-          \texttt{abstract Question} & \texttt{MultipleChoiceQuestion}, \texttt{StudentProducedResponseQuestion} \\
-          \texttt{BaseController} & \texttt{SubmitAttemptController}, \texttt{AdminTestsController} \\
-          \bottomrule
-        \end{tabular}
-      \end{infoCard}
-    \end{column}
-
-    \begin{column}{0.50\textwidth}
-      \begin{codeBox}
-\lstset{basicstyle=\fontsize{4.9pt}{5.9pt}\ttfamily}
-\begin{lstlisting}
-// lib/domain/question/ (Base Entity & Subclass)
-export abstract class Question extends Entity<string> {
-  public abstract isCorrect(userAnswer: string): boolean;
-}
-export class MultipleChoiceQuestion extends Question {
-  private readonly _choices: string[];
-  private readonly _correctAnswer: string;
-  public constructor(props: MultipleChoiceQuestionProps) {
-    super(props);
-    this._choices = [...props.choices];
-    this._correctAnswer = props.correctAnswer.trim();
+  public async submitAttempt(attemptId: string, userId: string): Promise<Attempt> {
+    const attempt = await this.attemptRepo.findById(attemptId);
+    // ...
+    const strategy = ScoringStrategyFactory.getStrategy(attempt.mode);
+    const now = this.clock.now();
+    attempt.submit(strategy, questions, now);
+    const savedAttempt = await this.attemptRepo.save(attempt);
+    // ...
+    return savedAttempt;
   }
 }
 \end{lstlisting}
       \end{codeBox}
     \end{column}
+
+    \begin{column}{0.44\textwidth}
+      \begin{infoCard}{Abstraction via Interfaces}
+        \begin{itemize}\setlength{\itemsep}{1.2pt}\setlength{\parskip}{0pt}\setlength{\leftmargini}{7pt}
+          \item \textbf{Contract-First Design:} \texttt{PracticeService} operates against interfaces (\texttt{IAttemptRepository}, \texttt{Clock}, \texttt{ScoringStrategy}), never database drivers.
+          \item \textbf{Testability via Mocks:} In-memory repositories and mock clocks plug seamlessly into services without spinning up MongoDB.
+          \item \textbf{Clean Boundaries:} Database query semantics and OS clock calls are fully abstracted away from application use cases.
+        \end{itemize}
+      \end{infoCard}
+    \end{column}
   \end{columns}
 
-  \vspace{0.3mm}
-  \begin{hlCard}{Inheritance Principle}
-    \fontsize{5.6pt}{6.6pt}\selectfont
-    Subclasses extend abstract base types to share common state and invariant behaviors while specializing domain logic and template hooks.
+  \vspace{0.8mm}
+  \begin{hlCard}{Architectural Impact}
+    The application layer orchestrates business workflows without knowledge of low-level persistence or system infrastructure.
   \end{hlCard}
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% SLIDE 13: OOP PILLAR 4: POLYMORPHISM
+% SLIDE 12: OOP PILLAR 3 - INHERITANCE
 % ------------------------------------------------------------------------------
-\begin{frame}[fragile]{OOP Pillar 4: Runtime Polymorphic Dispatch}
-  \vspace{0.2mm}
+\begin{frame}[fragile]{OOP Pillar 3: Inheritance \& Template Method Hierarchy}
+  \vspace{-1.0mm}
   \begin{columns}[T,onlytextwidth]
-    \begin{column}{0.48\textwidth}
-      \begin{infoCard}{Polymorphic Behavior in v2}
-        \begin{itemize}\setlength{\itemsep}{0.2pt}\setlength{\parskip}{0pt}\setlength{\leftmargini}{7pt}
-          \item \textbf{Question Scoring:} \texttt{isCorrect(ans)} performs string comparison for MCQ, but fraction/decimal equivalence for SPR.
-          \item \textbf{Dynamic Grading:} \texttt{strategy.score()} resolves at runtime to \texttt{FullLengthScoringStrategy} or \texttt{SectionalScoringStrategy}.
-          \item \textbf{Liskov Substitution:} In-memory repositories seamlessly substitute MongoDB repos in unit tests without changing service code.
-        \end{itemize}
-        \vspace{0.3mm}
-        \setlength{\tabcolsep}{2pt}
-        \fontsize{5.2pt}{6.2pt}\selectfont
-        \begin{tabular}{@{}ll@{}}
-          \toprule
-          \textbf{Polymorphic Call} & \textbf{Runtime Subclass Dispatch} \\
-          \midrule
-          \texttt{question.isCorrect(a)} & MCQ exact string vs SPR float tolerance \\
-          \texttt{strategy.score(att, q)} & Full (400--1600) vs Section (200--800) \\
-          \bottomrule
-        \end{tabular}
-      \end{infoCard}
+    \begin{column}{0.54\textwidth}
+      \begin{codeBox}
+\begin{lstlisting}
+// lib/domain/shared/Entity.ts
+export abstract class Entity<TId> {
+  protected readonly _id: TId;
+  protected constructor(id: TId) {
+    this._id = id;
+  }
+  public get id(): TId {
+    return this._id;
+  }
+}
+
+// lib/domain/question/Question.ts
+export abstract class Question
+  extends Entity<string>
+  implements Gradable, Describable, Comparable<Question>
+{
+  protected readonly _section: string;
+  public abstract get questionType(): QuestionType;
+  public abstract isCorrect(userAnswer: string): boolean;
+}
+\end{lstlisting}
+      \end{codeBox}
     \end{column}
 
-    \begin{column}{0.50\textwidth}
+    \begin{column}{0.44\textwidth}
+      \begin{infoCard}{Inheritance Hierarchies}
+        \begin{itemize}\setlength{\itemsep}{1.2pt}\setlength{\parskip}{0pt}\setlength{\leftmargini}{7pt}
+          \item \textbf{Entity Identity Base:} \texttt{Entity<TId>} provides shared ID equality comparison across \texttt{User}, \texttt{Test}, \texttt{Question}, and \texttt{Attempt}.
+          \item \textbf{Template Supertype:} \texttt{Question} defines common properties (\texttt{\_section}, \texttt{\_points}) while declaring abstract grading hooks.
+          \item \textbf{Controller Layer Supertype:} \texttt{BaseController} handles authentication and validation workflows before calling concrete \texttt{execute()}.
+        \end{itemize}
+      \end{infoCard}
+    \end{column}
+  \end{columns}
+
+  \vspace{0.8mm}
+  \begin{hlCard}{Architectural Impact}
+    Eliminates code duplication for identity management, validation pipelines, and persistence mapping across the codebase.
+  \end{hlCard}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% SLIDE 13: OOP PILLAR 4 - POLYMORPHISM
+% ------------------------------------------------------------------------------
+\begin{frame}[fragile]{OOP Pillar 4: Runtime Polymorphic Dispatch}
+  \vspace{-1.0mm}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.54\textwidth}
       \begin{codeBox}
-\lstset{basicstyle=\fontsize{4.8pt}{5.8pt}\ttfamily}
 \begin{lstlisting}
-// StudentProducedResponseQuestion.ts: Math equivalence
-public override isCorrect(userAnswer: string): boolean {
-  const userVal = this.parseNumeric((userAnswer || "").trim());
-  if (userVal !== null) {
-    for (const accepted of this._acceptedAnswers) {
-      const acceptedVal = this.parseNumeric(accepted);
-      if (acceptedVal !== null && Math.abs(userVal - acceptedVal) < 0.005) {
-        return true;
-      }
-    }
+// MCQ: Exact string match
+public isCorrect(userAnswer: string): boolean {
+  return this._correctAnswer.trim().toUpperCase() === userAnswer.trim().toUpperCase();
+}
+
+// SPR: Numeric & fraction tolerance
+public isCorrect(userAnswer: string): boolean {
+  const userVal = this.parseNumeric(userAnswer.trim());
+  if (userVal === null) return false;
+  for (const accepted of this._acceptedAnswers) {
+    const acceptedVal = this.parseNumeric(accepted);
+    if (acceptedVal !== null && Math.abs(userVal - acceptedVal) < 0.005) return true;
   }
   return false;
 }
 \end{lstlisting}
       \end{codeBox}
     \end{column}
+
+    \begin{column}{0.44\textwidth}
+      \begin{infoCard}{Polymorphic Dispatch}
+        \begin{itemize}\setlength{\itemsep}{1.2pt}\setlength{\parskip}{0pt}\setlength{\leftmargini}{7pt}
+          \item \textbf{No Switch/Case Branching:} Grading loop executes \lstinline|q.isCorrect(answer)| polymorphically over heterogeneous question collections.
+          \item \textbf{Specialized Logic:} MCQ enforces strict uppercase comparison; SPR evaluates decimal rounding, fractions, and numeric tolerance.
+          \item \textbf{LSP Compliance:} Subclasses fulfill the base \texttt{Question} contract without violating invariants or requiring type guards.
+        \end{itemize}
+      \end{infoCard}
+    \end{column}
   \end{columns}
 
-  \vspace{0.3mm}
-  \begin{hlCard}{Polymorphism Principle}
-    \fontsize{5.6pt}{6.6pt}\selectfont
-    Dynamic dispatch replaces procedural branching. Subclasses and strategies fulfill uniform interface contracts with specialized algorithms.
+  \vspace{0.8mm}
+  \begin{hlCard}{Architectural Impact}
+    New question types (e.g. graphing, drag-and-drop) can be added by implementing \texttt{Question} without editing grading engines.
   \end{hlCard}
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% SLIDE 14: UML SCORING STRATEGY (POLYMORPHISM)
+% SLIDE 14: UML SCORING STRATEGY PATTERN
 % ------------------------------------------------------------------------------
 \begin{frame}{Polymorphism in Action: Strategy Pattern for Exam Scoring}
   \vspace{-1.5mm}
   \centering
-  \includegraphics[width=\textwidth,height=66mm,keepaspectratio]{assets/02-scoring-strategy.png}\par
+  \includegraphics[width=\textwidth,height=65mm,keepaspectratio]{assets/02-scoring-strategy.png}\par
   \vspace{0.4mm}
-  {\fontsize{6.2pt}{7.2pt}\selectfont\color{textsec}\textbf{Strategy Pattern:} \texttt{ScoringStrategyFactory} instantiates the appropriate scoring strategy; \texttt{Attempt.submit()} delegates to \texttt{strategy.score()} polymorphically.}
+  {\fontsize{6.2pt}{7.2pt}\selectfont\color{textsec}\textbf{Strategy Pattern:} \texttt{ScoringStrategyFactory} instantiates \texttt{FullLengthScoringStrategy} (400--1600) or \texttt{SectionalScoringStrategy} (200--800).}
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% SLIDE 15: UML CORE DOMAIN CLASS DIAGRAM - USERS & FOUNDATION
+% SLIDE 15: UML DOMAIN MODEL - USER & RBAC
 % ------------------------------------------------------------------------------
 \begin{frame}{Domain Model: Core Foundation \& User RBAC Subtyping}
   \vspace{-1.5mm}
   \centering
-  \includegraphics[width=\textwidth,height=66mm,keepaspectratio]{assets/01a1-domain-users.png}\par
+  \includegraphics[width=\textwidth,height=65mm,keepaspectratio]{assets/01a1-domain-users.png}\par
   \vspace{0.4mm}
-  {\fontsize{6.2pt}{7.2pt}\selectfont\color{textsec}\textbf{Core Domain Layer:} Base \texttt{Entity<TId>} and \texttt{ValueObject} classes, \texttt{Email}, abstract \texttt{User}, and polymorphic \texttt{Student} vs \texttt{Admin} roles.}
+  {\fontsize{6.2pt}{7.2pt}\selectfont\color{textsec}\textbf{User Hierarchy:} Abstract \texttt{User} base class extended by \texttt{Student} (study metrics, target score) and \texttt{Admin} (staff privileges).}
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% SLIDE 16: UML CORE DOMAIN CLASS DIAGRAM - TESTS & QUESTIONS
+% SLIDE 16: UML DOMAIN MODEL - TEST & QUESTIONS
 % ------------------------------------------------------------------------------
 \begin{frame}{Domain Model: Test Aggregate \& Polymorphic Questions}
   \vspace{-1.5mm}
   \centering
-  \includegraphics[width=\textwidth,height=66mm,keepaspectratio]{assets/01a2-domain-questions.png}\par
+  \includegraphics[width=\textwidth,height=65mm,keepaspectratio]{assets/01a2-domain-questions.png}\par
   \vspace{0.4mm}
-  {\fontsize{6.2pt}{7.2pt}\selectfont\color{textsec}\textbf{Assessment Subsystem:} \texttt{Test} aggregate root composing \texttt{Section}s, referencing abstract \texttt{Question}, and concrete \texttt{MultipleChoiceQuestion} vs \texttt{StudentProducedResponseQuestion}.}
+  {\fontsize{6.2pt}{7.2pt}\selectfont\color{textsec}\textbf{Multiple Interface Realization:} \texttt{Question} realizes \texttt{Gradable}, \texttt{Describable}, and \texttt{Comparable<T>} capability interfaces.}
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% SLIDE 17: UML STUDY DOMAIN CLASS DIAGRAM - ATTEMPTS & ERROR LOG
+% SLIDE 17: UML DOMAIN MODEL - ATTEMPT & ERROR LOG
 % ------------------------------------------------------------------------------
 \begin{frame}{Domain Model: Exam Sitting Aggregate \& Deduplicated Error Log}
   \vspace{-1.5mm}
   \centering
-  \includegraphics[width=\textwidth,height=66mm,keepaspectratio]{assets/01b1-domain-attempt.png}\par
+  \includegraphics[width=\textwidth,height=65mm,keepaspectratio]{assets/01b1-domain-attempt.png}\par
   \vspace{0.4mm}
-  {\fontsize{6.2pt}{7.2pt}\selectfont\color{textsec}\textbf{Exam Sitting Domain:} \texttt{Attempt} aggregate root composing immutable \texttt{AnswerRecord}s and bounded \texttt{ScaledScore}; triggers deduplicated \texttt{ErrorLogEntry}.}
+  {\fontsize{6.2pt}{7.2pt}\selectfont\color{textsec}\textbf{Aggregate Boundaries:} \texttt{Attempt} manages composed \texttt{AnswerRecord} objects; \texttt{ErrorLogEntry} deduplicates student mistakes.}
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% SLIDE 18: UML STUDY DOMAIN CLASS DIAGRAM - VOCAB SPLog
+% SLIDE 18: UML DOMAIN MODEL - VOCABULARY LEITNER
 % ------------------------------------------------------------------------------
 \begin{frame}{Domain Model: Vocabulary Spaced Repetition Domain}
   \vspace{-1.5mm}
   \centering
-  \includegraphics[width=\textwidth,height=66mm,keepaspectratio]{assets/01b2-domain-vocab.png}\par
+  \includegraphics[width=\textwidth,height=65mm,keepaspectratio]{assets/01b2-domain-vocab.png}\par
   \vspace{0.4mm}
-  {\fontsize{6.2pt}{7.2pt}\selectfont\color{textsec}\textbf{Spaced Repetition Domain:} \texttt{VocabDeck} aggregate root composing \texttt{VocabCard}s; interval scheduling via Strategy \texttt{ReviewScheduler} / \texttt{LeitnerScheduler}.}
+  {\fontsize{6.2pt}{7.2pt}\selectfont\color{textsec}\textbf{Domain Entity:} \texttt{VocabCard} encapsulates Leitner 5-box intervals and review counts; \texttt{VocabDeck} aggregates cards.}
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% SLIDE 17: UML SEQUENCE: SUBMIT ATTEMPT
+% SLIDE 19: UML SEQUENCE: SUBMIT ATTEMPT (PART 1: SCORING)
 % ------------------------------------------------------------------------------
-\begin{frame}{Sequence: Exam Sitting Submission \& Error Log Recording}
+\begin{frame}{Sequence: Exam Sitting Submission \& Scoring Strategy (Part 1)}
   \vspace{-1.5mm}
   \centering
-  \includegraphics[width=\textwidth,height=66mm,keepaspectratio]{assets/05-sequence-submit-attempt.png}\par
+  \includegraphics[width=\textwidth,height=65mm,keepaspectratio]{assets/05a-sequence-submit-attempt.png}\par
   \vspace{0.4mm}
-  {\fontsize{6.2pt}{7.2pt}\selectfont\color{textsec}\textbf{Execution Lifecycle:} HTTP request $\rightarrow$ \texttt{SubmitAttemptController} (Template Method) $\rightarrow$ \texttt{PracticeService} $\rightarrow$ Strategy scoring $\rightarrow$ Deduplicated error log update.}
+  {\fontsize{6.2pt}{7.2pt}\selectfont\color{textsec}\textbf{Scoring Phase:} HTTP request $\rightarrow$ \texttt{SubmitAttemptController} $\rightarrow$ \texttt{PracticeService} selects \texttt{FullLengthScoringStrategy} via factory $\rightarrow$ \texttt{Attempt.submit()} computes score and transitions status to submitted.}
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% SLIDE 18: UML SEQUENCE: VOCAB REVIEW
+% SLIDE 20: UML SEQUENCE: SUBMIT ATTEMPT (PART 2: OBSERVER NOTIFICATION)
+% ------------------------------------------------------------------------------
+\begin{frame}{Sequence: Observer Dispatch \& Error Log Projection (Part 2)}
+  \vspace{-1.5mm}
+  \centering
+  \includegraphics[width=\textwidth,height=65mm,keepaspectratio]{assets/05b-sequence-publish-handlers.png}\par
+  \vspace{0.4mm}
+  {\fontsize{6.2pt}{7.2pt}\selectfont\color{textsec}\textbf{Observer Notification Phase:} \texttt{PracticeService} persists submitted attempt $\rightarrow$ publishes \texttt{AttemptSubmittedEvent} to \texttt{DomainEventBus} $\rightarrow$ \texttt{StudentProgressHandler} updates progress $\rightarrow$ \texttt{ErrorLogProjector} deduplicates errors $\rightarrow$ 200 OK.}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% SLIDE 20: UML SEQUENCE: VOCAB REVIEW
 % ------------------------------------------------------------------------------
 \begin{frame}{Sequence: Flashcard Review via Leitner Spaced Repetition}
   \vspace{-1.5mm}
   \centering
-  \includegraphics[width=\textwidth,height=66mm,keepaspectratio]{assets/06-sequence-vocab-review.png}\par
+  \includegraphics[width=\textwidth,height=65mm,keepaspectratio]{assets/06-sequence-vocab-review.png}\par
   \vspace{0.4mm}
   {\fontsize{6.2pt}{7.2pt}\selectfont\color{textsec}\textbf{Vocab Review Lifecycle:} \texttt{ReviewVocabCardController} invokes \texttt{VocabService}; \texttt{VocabCard.review()} calculates interval and advances Leitner box.}
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% SLIDE 19: DESIGN PATTERNS TABLE
+% SLIDE 21: DESIGN PATTERNS TABLE
 % ------------------------------------------------------------------------------
-\begin{frame}{Design Patterns Catalog in RonanSAT v2}
+\begin{frame}{Design Patterns Catalog in RonanSAT}
   \vspace{0.2mm}
   \begin{infoCard}{Catalog of Implemented Gang of Four \& DDD Design Patterns}
-    \fontsize{5.2pt}{6.2pt}\selectfont
-    \renewcommand{\arraystretch}{0.96}
+    \fontsize{5.0pt}{6.0pt}\selectfont
+    \renewcommand{\arraystretch}{0.93}
     \begin{tabular}{@{}p{18mm}p{22mm}p{30mm}p{48mm}@{}}
       \toprule
       \textbf{Design Pattern} & \textbf{Code Location} & \textbf{Classes / Interfaces} & \textbf{Architectural Benefit} \\
       \midrule
-      \textbf{Repository} & \texttt{lib/application/ports/} & \texttt{IRepository<T, TId>}, \texttt{MongoRepository} & Decouples domain from DB; enables in-memory tests \\
+      \textbf{Observer} & \texttt{lib/domain/events/} & \texttt{DomainEventBus<T>}, \texttt{EventHandler<T>} & Decouples event publishers from side-effect subscribers (progress, error log) \\
+      \textbf{Repository} & \texttt{lib/application/ports/} & \texttt{IRepository<T, TId>}, \texttt{MongoRepository} & Decouples domain from DB; enables generic in-memory tests \\
       \textbf{Strategy} & \texttt{lib/domain/scoring/} & \texttt{ScoringStrategy}, \texttt{ReviewScheduler} & Interchangeable grading \& Leitner review algorithms \\
-      \textbf{Factory} & \texttt{lib/domain/scoring/} & \texttt{ScoringStrategyFactory}, \texttt{QuestionFactory} & Encapsulates polymorphic instantiation of strategies \\
+      \textbf{Factory} & \texttt{lib/domain/scoring/} & \texttt{ScoringStrategyFactory} & Encapsulates polymorphic instantiation of strategies \\
       \textbf{Template Method} & \texttt{lib/http/}, \texttt{lib/infra/} & \texttt{BaseController.handle()}, \texttt{MongoRepository} & Fixed execution skeleton with customizable subclass hooks \\
-      \textbf{Composition Root} & \texttt{lib/container.ts} & \texttt{Container.getInstance()} (Singleton) & Centralizes dependency graph construction at bootstrap \\
+      \textbf{Composition Root} & \texttt{lib/container.ts} & \texttt{Container.getInstance()} (Singleton) & Centralizes dependency graph construction and event subscriptions at bootstrap \\
       \textbf{Dependency Injection} & \texttt{lib/application/services/} & Service \& Controller constructors & Injects interface dependencies via constructor \\
       \textbf{Value Object (DDD)} & \texttt{lib/domain/shared/} & \texttt{Email}, \texttt{Section}, \texttt{ScaledScore}, \texttt{AnswerRecord} & Immutable attributes compared by structural equality \\
       \textbf{Aggregate Root (DDD)} & \texttt{lib/domain/} & \texttt{Attempt}, \texttt{Test}, \texttt{VocabDeck} & Ensures transactional consistency and boundary invariants \\
@@ -687,12 +692,348 @@ public override isCorrect(userAnswer: string): boolean {
   \vspace{0.4mm}
   \begin{hlCard}{Pattern Synergies}
     \fontsize{5.6pt}{6.6pt}\selectfont
-    Patterns work collaboratively: Controllers extend \textbf{Template Method}, invoke Services injected via \textbf{DI}, evaluate scores through the \textbf{Strategy Pattern}, and persist data via the \textbf{Repository Pattern}.
+    Patterns work collaboratively: Controllers extend \textbf{Template Method}, invoke Services via \textbf{DI}, evaluate scores through the \textbf{Strategy Pattern}, publish events to the \textbf{Observer Bus}, and persist data via the \textbf{Repository Pattern}.
   \end{hlCard}
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% SLIDE 20: SCREENSHOTS: HOME & PRACTICE ROOM
+% SLIDE 22: IT3100E SYLLABUS OVERVIEW MATRIX
+% ------------------------------------------------------------------------------
+\begin{frame}{IT3100E Syllabus Coverage: Comprehensive OOP Matrix}
+  \vspace{0.2mm}
+  \begin{infoCard}{Direct Mapping of IT3100E Course Chapters to Production Codebase}
+    \setlength{\tabcolsep}{1.2pt}
+    \fontsize{4.6pt}{5.6pt}\selectfont
+    \renewcommand{\arraystretch}{0.95}
+    \begin{tabular}{@{}p{10mm}p{34mm}p{28mm}p{34mm}p{23mm}@{}}
+      \toprule
+      \textbf{Chapter} & \textbf{OOP / Language Concept} & \textbf{Source File} & \textbf{Symbol / Implementation} & \textbf{Test Suite} \\
+      \midrule
+      \textbf{Ch.3} & Encapsulation \& Invariant Protection & \texttt{lib/domain/attempt/} & \texttt{recordAnswer()} state guard & \texttt{attempt.test.ts} \\
+      \textbf{Ch.4} & Constructor Overloads \& Object Equality & \texttt{lib/domain/scoring/} & \texttt{ScaledScore} props vs section & \texttt{scoring.test.ts} \\
+      \textbf{Ch.5} & Method Overloads \& Static Members & \texttt{lib/domain/vocab/} & \texttt{VocabCard.review()} \& \texttt{MAX\_BOX} & \texttt{vocab-leitner.test.ts} \\
+      \textbf{Ch.6} & Composition vs. Aggregation & \texttt{lib/domain/test/} & Composed \texttt{Section} vs referenced ID & \texttt{oop-foundations.test.ts} \\
+      \textbf{Ch.7} & Multiple Capability Interfaces & \texttt{lib/domain/question/} & \texttt{Gradable}, \texttt{Describable}, \texttt{Comparable} & \texttt{oop-foundations.test.ts} \\
+      \textbf{Ch.8} & Dynamic Binding \& Justified Downcast & \texttt{lib/application/eventhandlers/} & Polymorphic \texttt{isCorrect()}, \texttt{instanceof} & \texttt{question-spr.test.ts} \\
+      \textbf{Ch.9} & Generics \& Bounded Repository & \texttt{lib/application/ports/} & \texttt{IRepository<T, TId>}, \texttt{Page<T>} & \texttt{services.test.ts} \\
+      \textbf{Ch.10} & Domain Exception Hierarchy \& Chaining & \texttt{lib/domain/shared/} & \texttt{DomainError}, \texttt{PersistenceError} cause & \texttt{events-and-errors.test.ts} \\
+      \textbf{Ch.11} & Observer Pattern \& Domain Events & \texttt{lib/domain/events/} & \texttt{DomainEventBus<T>}, \texttt{EventHandler<T>} & \texttt{events-and-errors.test.ts} \\
+      \textbf{Ch.12} & Collections, Sets \& Projections & \texttt{lib/infrastructure/persistence/} & \texttt{Map}-backed repos, \texttt{Set} in Result & \texttt{services.test.ts} \\
+      \textbf{Ch.13} & SOLID Principles (S.O.L.I.D.) & Cross-cutting codebase & SRP Service, OCP Strategy, LSP, ISP, DIP & All 79 Tests \\
+      \bottomrule
+    \end{tabular}
+  \end{infoCard}
+  \vspace{0.4mm}
+  \begin{hlCard}{Academic Rigor \& Production Realism}
+    \fontsize{5.4pt}{6.4pt}\selectfont
+    Every concept is backed by working domain code verified by \texttt{npm run check:oop} (48 verified symbols) and 79 automated Vitest unit tests.
+  \end{hlCard}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% SLIDE 24: SYLLABUS CH.11: OBSERVER PATTERN & DOMAIN EVENTS
+% ------------------------------------------------------------------------------
+\begin{frame}[fragile]{Syllabus Ch.11: Observer Pattern \& Domain Events}
+  \vspace{-1.8mm}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.37\textwidth}
+      \begin{codeBox}
+\begin{lstlisting}[basicstyle=\fontsize{4.5pt}{5.3pt}\ttfamily]
+// lib/domain/events/DomainEventBus.ts
+export class DomainEventBus<TEvents extends object> {
+  private readonly handlers = new Map<keyof TEvents, EventHandler<unknown>[]>();
+
+  public subscribe<K extends keyof TEvents>(type: K, handler: EventHandler<TEvents[K]>): void {
+    const registered = this.handlers.get(type) ?? [];
+    registered.push(handler as EventHandler<unknown>);
+    this.handlers.set(type, registered);
+  }
+
+  public async publish<K extends keyof TEvents>(type: K, event: TEvents[K]): Promise<void> {
+    const registered = this.handlers.get(type) ?? [];
+    for (const handler of registered) {
+      await handler.handle(event as unknown);
+    }
+  }
+}
+\end{lstlisting}
+      \end{codeBox}
+      \vspace{0.6mm}
+      \begin{infoCard}{Ch.11 Decoupled Event Handling}
+        \fontsize{5.0pt}{6.0pt}\selectfont
+        \textbf{Type-Safe Bus:} Subscriptions checked via \texttt{DomainEvents}.\\
+        \textbf{Decoupled Side Effects:} \texttt{PracticeService} publishes \texttt{AttemptSubmittedEvent}; handlers consume it via \texttt{EventHandler<T>}.
+      \end{infoCard}
+    \end{column}
+
+    \begin{column}{0.61\textwidth}
+      \centering
+      \vspace{0.5mm}
+      \includegraphics[width=\linewidth,height=64mm,keepaspectratio]{assets/07-observer-events.png}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% SLIDE 24: SYLLABUS CH.7: MULTIPLE INTERFACES
+% ------------------------------------------------------------------------------
+\begin{frame}[fragile]{Syllabus Ch.7: Multiple Interface Realization \& Segregation}
+  \vspace{-1.2mm}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.54\textwidth}
+      \begin{codeBox}
+\begin{lstlisting}
+// lib/domain/question/QuestionCapabilities.ts
+export interface Gradable {
+  isCorrect(userAnswer: string): boolean;
+}
+export interface Describable {
+  describe(): string;
+}
+export interface Comparable<T> {
+  compareTo(other: T): number;
+}
+
+// lib/domain/question/Question.ts
+export abstract class Question
+  extends Entity<string>
+  implements Gradable, Describable, Comparable<Question>
+{
+  // ...
+  public describe(): string {
+    return `${this._section} module ${this._module}: ${this._questionText.slice(0, 60)}`;
+  }
+  public compareTo(other: Question): number {
+    const sectionOrder = this.sectionRank() - other.sectionRank();
+    if (sectionOrder !== 0) return sectionOrder;
+    return this._module - other._module;
+  }
+}
+\end{lstlisting}
+      \end{codeBox}
+    \end{column}
+
+    \begin{column}{0.44\textwidth}
+      \begin{infoCard}{Role-Based Capability Contracts}
+        \begin{itemize}\setlength{\itemsep}{1.2pt}\setlength{\parskip}{0pt}\setlength{\leftmargini}{7pt}
+          \item \textbf{Interface Segregation Principle (ISP):} Small, focused interfaces define specific capabilities (\texttt{Gradable}, \texttt{Describable}, \texttt{Comparable}) rather than forcing monolithic contracts.
+          \item \textbf{One Class, Multiple Interfaces:} \texttt{Question} implements all three interfaces simultaneously, combining grading logic, formatted summaries, and canonical sorting.
+          \item \textbf{Client Decoupling:} \texttt{TestService} sorts questions via the \texttt{Comparable} interface without coupling to MCQ or SPR implementations.
+        \end{itemize}
+      \end{infoCard}
+      \vspace{1mm}
+      \begin{hlCard}{Abstract Class vs. Interface}
+        \fontsize{5.4pt}{6.4pt}\selectfont
+        \texttt{Question} holds shared state (\texttt{\_testId}, \texttt{\_section}, \texttt{\_points}) while the capability interfaces define purely what an object can \emph{do}.
+      \end{hlCard}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% SLIDE 25: SYLLABUS CH.9: GENERICS & BOUNDED POLYMORPHISM
+% ------------------------------------------------------------------------------
+\begin{frame}[fragile]{Syllabus Ch.9: Generics, Bounded Types \& Collection Containers}
+  \vspace{-1.2mm}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.54\textwidth}
+      \begin{codeBox}
+\begin{lstlisting}
+// lib/application/ports/repositories/IRepository.ts
+// Bounded type parameter: only domain entities may be stored
+export interface IRepository<TEntity extends Entity<TId>, TId = string> {
+  findById(id: TId): Promise<TEntity | null>;
+  save(entity: TEntity): Promise<TEntity>;
+  delete(id: TId): Promise<boolean>;
+}
+
+// lib/domain/shared/Page.ts - Generic collection container
+export class Page<T> {
+  public constructor(
+    public readonly items: readonly T[],
+    public readonly total: number,
+    public readonly page: number,
+    public readonly pageSize: number
+  ) {}
+
+  public map<U>(mapper: (item: T, index: number) => U): Page<U> {
+    return new Page(this.items.map(mapper), this.total, this.page, this.pageSize);
+  }
+}
+\end{lstlisting}
+      \end{codeBox}
+    \end{column}
+
+    \begin{column}{0.44\textwidth}
+      \begin{infoCard}{Generic Type Safety \& Reusability}
+        \begin{itemize}\setlength{\itemsep}{1.2pt}\setlength{\parskip}{0pt}\setlength{\leftmargini}{7pt}
+          \item \textbf{Generic Repository Base:} \texttt{InMemoryRepository<TEntity, TId>} implements CRUD operations once using typed \texttt{Map} storage, eliminating redundant mock code.
+          \item \textbf{Bounded Polymorphism:} \lstinline|TEntity extends Entity<TId>| guarantees that repositories only accept objects with verified identity and \texttt{equals()} logic.
+          \item \textbf{Generic Container Transformation:} \texttt{Page<T>} provides immutable pagination metadata with a higher-order \lstinline|map<U>()| method for entity-to-DTO conversion.
+        \end{itemize}
+      \end{infoCard}
+      \vspace{1mm}
+      \begin{hlCard}{Wildcard Analogue}
+        \fontsize{5.4pt}{6.4pt}\selectfont
+        \texttt{collectEntityIds(entities: Entity<unknown>[])} operates polymorphically across any entity type, mirroring Java wildcards (\texttt{Entity<?>}).
+      \end{hlCard}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% SLIDE 27: SYLLABUS CH.10: EXCEPTIONS & CAUSE CHAINING (CODE)
+% ------------------------------------------------------------------------------
+\begin{frame}[fragile]{Syllabus Ch.10: Domain Exceptions \& Cause Chaining}
+  \vspace{-1.2mm}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.54\textwidth}
+      \begin{codeBox}
+\begin{lstlisting}[basicstyle=\fontsize{5.2pt}{6.2pt}\ttfamily]
+// lib/domain/shared/DomainError.ts
+export abstract class DomainError extends Error {
+  public constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+  }
+}
+export class PersistenceError extends DomainError {
+  public constructor(message = "Persistence operation failed", cause?: unknown) {
+    super(message, { cause });
+  }
+  public static wrap(operation: string, cause: unknown): PersistenceError {
+    return new PersistenceError(`Persistence operation failed during ${operation}`, cause);
+  }
+}
+\end{lstlisting}
+      \end{codeBox}
+    \end{column}
+
+    \begin{column}{0.44\textwidth}
+      \begin{infoCard}{Ch.10 Exception Hierarchy \& Mapping}
+        \begin{itemize}\setlength{\itemsep}{1.2pt}\setlength{\parskip}{0pt}\setlength{\leftmargini}{7pt}
+          \item \textbf{Domain Boundary:} Exceptions carry domain error semantics without leaking database or driver error structures.
+          \item \textbf{Exception Chaining:} \texttt{PersistenceError.wrap()} preserves driver error in standard \texttt{cause} property.
+          \item \textbf{Centralized Mapping:} \texttt{HttpErrorMapper} translates domain exceptions into standard RFC HTTP response status codes.
+        \end{itemize}
+      \end{infoCard}
+      \vspace{0.8mm}
+      \begin{hlCard}{Opaque HTTP 500 Responses}
+        Infrastructure failures yield a sanitized generic 500 payload; internal stack traces and driver details never escape the server boundary.
+      \end{hlCard}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% SLIDE 28: UML EXCEPTION HIERARCHY
+% ------------------------------------------------------------------------------
+\begin{frame}{Exception Hierarchy: Domain Errors \& HTTP Mapping}
+  \vspace{-2.5mm}
+  \centering
+  \includegraphics[width=\textwidth,height=72mm,keepaspectratio]{assets/08-exception-hierarchy.png}\par
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% SLIDE 27: SYLLABUS CH.5: METHOD OVERLOADING & STATIC MEMBERS
+% ------------------------------------------------------------------------------
+\begin{frame}[fragile]{Syllabus Ch.5: Method Overloading \& Static vs. Instance Members}
+  \vspace{-1.2mm}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.54\textwidth}
+      \begin{codeBox}
+\begin{lstlisting}
+// lib/domain/vocab/VocabCard.ts
+export class VocabCard extends Entity<string> {
+  public static readonly MAX_BOX = 5;
+  private static readonly DEFAULT_SCHEDULER: ReviewScheduler = new LeitnerScheduler();
+
+  public get box(): number {
+    return this._box;
+  }
+
+  public review(grade: ReviewGrade): void;
+  public review(grade: ReviewGrade, scheduler: ReviewScheduler, now?: Date): void;
+  public review(
+    grade: ReviewGrade,
+    scheduler: ReviewScheduler = VocabCard.DEFAULT_SCHEDULER,
+    now: Date = new Date()
+  ): void {
+    const result = scheduler.calculateNextReview(this._box, grade, now);
+    this._box = Math.max(1, Math.min(VocabCard.MAX_BOX, result.nextBox));
+    this._nextReviewDate = result.nextReviewDate;
+  }
+}
+\end{lstlisting}
+      \end{codeBox}
+    \end{column}
+
+    \begin{column}{0.44\textwidth}
+      \begin{infoCard}{Method Overloading \& Static State}
+        \begin{itemize}\setlength{\itemsep}{1.2pt}\setlength{\parskip}{0pt}\setlength{\leftmargini}{7pt}
+          \item \textbf{Method Overload Signatures:} \texttt{review(grade)} provides an ergonomic default for UI callers, while \lstinline|review(grade, scheduler, now)| allows test suites to inject fixed clocks and mock schedulers.
+          \item \textbf{Static Class Members:} \texttt{VocabCard.MAX\_BOX} is shared globally across all card instances without per-object memory overhead.
+          \item \textbf{Instance State Separation:} Every card maintains its own \texttt{\_box}, \texttt{\_nextReviewDate}, and \texttt{\_reviewCount}, completely isolated from other cards.
+        \end{itemize}
+      \end{infoCard}
+      \vspace{1mm}
+      \begin{hlCard}{Inversion of Control via Overloads}
+        \fontsize{5.4pt}{6.4pt}\selectfont
+        The overloaded signature combines production convenience with the strict dependency injection required for deterministic testing.
+      \end{hlCard}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% SLIDE 28: SYLLABUS CH.4: CONSTRUCTORS & OBJECT EQUALITY
+% ------------------------------------------------------------------------------
+\begin{frame}[fragile]{Syllabus Ch.4: Constructor Overloading \& Identity vs. Value Equality}
+  \vspace{-1.8mm}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.54\textwidth}
+      \begin{codeBox}
+\begin{lstlisting}
+// lib/domain/scoring/ScaledScore.ts - Constructor overloading
+export class ScaledScore extends ValueObject<ScaledScoreProps> {
+  public constructor(props: ScaledScoreProps);
+  public constructor(
+    sectionScores: CompleteSectionScores,
+    rawCorrectCounts: CompleteRawCorrectCounts,
+    totalQuestions: number
+  );
+  public constructor(
+    propsOrSectionScores: ScaledScoreProps | CompleteSectionScores,
+    rawCorrectCounts?: CompleteRawCorrectCounts,
+    totalQuestions?: number
+  ) {
+    const props = ScaledScore.toProps(propsOrSectionScores, rawCorrectCounts, totalQuestions);
+    ScaledScore.validate(props);
+    super(props);
+  }
+}
+\end{lstlisting}
+      \end{codeBox}
+    \end{column}
+
+    \begin{column}{0.44\textwidth}
+      \begin{infoCard}{Constructors \& Equality Semantics}
+        \begin{itemize}\setlength{\itemsep}{1.2pt}\setlength{\parskip}{0pt}\setlength{\leftmargini}{7pt}
+          \item \textbf{Overloaded Constructors:} \texttt{ScaledScore} can be constructed either from a rehydrated persistence object or computed directly from raw section score aggregates.
+          \item \textbf{Invariant Validation at Construction:} Constructors validate business invariants, ensuring that invalid instances (e.g. invalid score bounds or malformed emails) can never be created.
+          \item \textbf{Identity vs. Structural Equality:} \texttt{Entity.equals()} compares by unique domain identifier (\texttt{id}), whereas \texttt{ValueObject.equals()} performs deep property equality.
+        \end{itemize}
+      \end{infoCard}
+      \vspace{0.4mm}
+      \begin{hlCard}{Domain-Driven Design Distinction}
+        \fontsize{5.4pt}{6.4pt}\selectfont
+        Two \texttt{Attempt} instances with identical IDs represent the same exam sitting, whereas two \texttt{Email} instances are equal if and only if their text matches.
+      \end{hlCard}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% SLIDE 29: SCREENSHOTS: HOME & PRACTICE ROOM
 % ------------------------------------------------------------------------------
 \begin{frame}{Product UI: Student Dashboard \& Digital Exam Room}
   \vspace{0.2mm}
@@ -700,8 +1041,8 @@ public override isCorrect(userAnswer: string): boolean {
     \begin{column}{0.48\textwidth}
       \begin{infoCard}{Student Home Dashboard}
         \centering
-        \includegraphics[width=\textwidth,height=30mm,keepaspectratio]{../docs/screenshots/v2/02-home.png}\\[0.4mm]
-        \fontsize{5.6pt}{6.6pt}\selectfont Score sparkline, latest score (1360), active practice CTA, error log count \& due vocab cards.
+        \includegraphics[width=\textwidth,height=30mm,keepaspectratio]{../docs/screenshots/v3/02-dashboard-desktop-1440.png}\\[0.4mm]
+        \fontsize{5.6pt}{6.6pt}\selectfont Real v3 production dashboard: practice exam launch, score trend sparkline, active error log count \& daily due vocab cards.
       \end{infoCard}
     \end{column}
 
@@ -709,7 +1050,7 @@ public override isCorrect(userAnswer: string): boolean {
       \begin{infoCard}{Exam Room: LaTeX Math \& Desmos}
         \centering
         \includegraphics[width=\textwidth,height=30mm,keepaspectratio]{../docs/screenshots/v2/04-test-math-latex.png}\\[0.4mm]
-        \fontsize{5.6pt}{6.6pt}\selectfont KaTeX formula rendering, embedded Desmos graphing calculator, countdown timer \& navigator.
+        \fontsize{5.6pt}{6.6pt}\selectfont KaTeX formula rendering, embedded Desmos graphing calculator, countdown timer \& question navigator.
       \end{infoCard}
     \end{column}
   \end{columns}
@@ -721,7 +1062,7 @@ public override isCorrect(userAnswer: string): boolean {
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% SLIDE 21: SCREENSHOTS: RESULTS & ERROR LOG
+% SLIDE 30: SCREENSHOTS: RESULTS & ERROR LOG
 % ------------------------------------------------------------------------------
 \begin{frame}{Product UI: Result Breakdown \& Deduplicated Error Log}
   \vspace{0.2mm}
@@ -729,7 +1070,7 @@ public override isCorrect(userAnswer: string): boolean {
     \begin{column}{0.48\textwidth}
       \begin{infoCard}{Exam Result Detail}
         \centering
-        \includegraphics[width=\textwidth,height=30mm,keepaspectratio]{../docs/screenshots/v2/08-result-detail.png}\\[0.4mm]
+        \includegraphics[width=\textwidth,height=24mm,keepaspectratio]{../docs/screenshots/v2/08-result-detail.png}\\[0.4mm]
         \fontsize{5.6pt}{6.6pt}\selectfont Composite scaled score (1360: R\&W 680, Math 680) with 4-module question review grid.
       \end{infoCard}
     \end{column}
@@ -737,7 +1078,7 @@ public override isCorrect(userAnswer: string): boolean {
     \begin{column}{0.48\textwidth}
       \begin{infoCard}{Deduplicated Error Log with Inline Retry}
         \centering
-        \includegraphics[width=\textwidth,height=30mm,keepaspectratio]{../docs/screenshots/v2/10-error-log.png}\\[0.4mm]
+        \includegraphics[width=\textwidth,height=24mm,keepaspectratio]{../docs/screenshots/v2/10-error-log.png}\\[0.4mm]
         \fontsize{5.6pt}{6.6pt}\selectfont Filter by section, skill, and reason; tag notes; retry mistakes inline with automatic resolution.
       \end{infoCard}
     \end{column}
@@ -750,7 +1091,7 @@ public override isCorrect(userAnswer: string): boolean {
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% SLIDE 22: SCREENSHOTS: STATISTICS & VOCAB STUDY
+% SLIDE 31: SCREENSHOTS: STATISTICS & VOCAB STUDY
 % ------------------------------------------------------------------------------
 \begin{frame}{Product UI: Performance Statistics \& Spaced Repetition Vocab}
   \vspace{0.2mm}
@@ -758,8 +1099,8 @@ public override isCorrect(userAnswer: string): boolean {
     \begin{column}{0.48\textwidth}
       \begin{infoCard}{Analytics \& Activity Heatmap}
         \centering
-        \includegraphics[width=\textwidth,height=30mm,keepaspectratio]{../docs/screenshots/v2/11-statistics.png}\\[0.4mm]
-        \fontsize{5.6pt}{6.6pt}\selectfont Score trend over time, 12-week study heatmap, and section/domain skill accuracy bars.
+        \includegraphics[width=\textwidth,height=30mm,keepaspectratio]{../docs/screenshots/v3/08-statistics-desktop-1440.png}\\[0.4mm]
+        \fontsize{5.6pt}{6.6pt}\selectfont Real v3 analytics: overall accuracy trends, 12-week study heatmap, and section/domain skill mastery distribution.
       \end{infoCard}
     \end{column}
 
@@ -773,30 +1114,30 @@ public override isCorrect(userAnswer: string): boolean {
   \end{columns}
 
   \vspace{0.4mm}
-  \begin{hlCard}{Data-Driven Retention}
-    Recharts analytics guide student review priorities, while the Leitner spaced repetition engine maximizes vocabulary memorization.
+  \begin{hlCard}{Data-Driven Progress Tracking}
+    Aggregated performance analytics computed on-the-fly from persisted attempt aggregates and spaced repetition schedules.
   \end{hlCard}
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% SLIDE 23: SCREENSHOTS: ADMIN PORTAL
+% SLIDE 32: SCREENSHOTS: ADMIN OVERSIGHT
 % ------------------------------------------------------------------------------
 \begin{frame}{Product UI: Administrative Oversight \& Question Authoring}
   \vspace{0.2mm}
   \begin{columns}[T]
     \begin{column}{0.48\textwidth}
-      \begin{infoCard}{Admin Overview Metrics}
+      \begin{infoCard}{System Health \& KPI Dashboard}
         \centering
         \includegraphics[width=\textwidth,height=30mm,keepaspectratio]{../docs/screenshots/v2/14-admin-overview.png}\\[0.4mm]
-        \fontsize{5.6pt}{6.6pt}\selectfont High-level platform KPIs: total users, tests, questions, and attempt sitting metrics.
+        \fontsize{5.6pt}{6.6pt}\selectfont Platform metrics: total students, test submissions, question bank counts, and active exam status.
       \end{infoCard}
     \end{column}
 
     \begin{column}{0.48\textwidth}
-      \begin{infoCard}{Question Authoring \& SPR Configuration}
+      \begin{infoCard}{Question Authoring \& SPR Tolerance Editor}
         \centering
         \includegraphics[width=\textwidth,height=30mm,keepaspectratio]{../docs/screenshots/v2/15b-admin-question-editor.png}\\[0.4mm]
-        \fontsize{5.6pt}{6.6pt}\selectfont Multi-type question editor supporting passage text, choices, accepted SPR answers, and explanations.
+        \fontsize{5.6pt}{6.6pt}\selectfont Configure MCQ choices or SPR accepted numbers, tolerance ranges, domains, skills, and KaTeX explanations.
       \end{infoCard}
     \end{column}
   \end{columns}
@@ -808,28 +1149,30 @@ public override isCorrect(userAnswer: string): boolean {
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% SLIDE 24: TESTING & QUALITY ASSURANCE
+% SLIDE 33: TESTING & QUALITY ASSURANCE
 % ------------------------------------------------------------------------------
-\begin{frame}{Automated Testing: 64 Unit Tests Verifying OOP Rules}
+\begin{frame}{Automated Testing: 79 Unit Tests Verifying OOP Rules}
   \vspace{0.3mm}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.50\textwidth}
       \begin{infoCard}{Unit Test Distribution Across Suites}
         \setlength{\tabcolsep}{1.5pt}
-        \fontsize{5.2pt}{6.4pt}\selectfont
-        \renewcommand{\arraystretch}{1.05}
+        \fontsize{5.0pt}{6.0pt}\selectfont
+        \renewcommand{\arraystretch}{1.00}
         \begin{tabular}{@{}p{24mm}p{4mm}p{30mm}@{}}
           \toprule
           \textbf{Test Suite} & \textbf{N} & \textbf{Verified OOP Invariants \& Logic} \\
           \midrule
           \texttt{scoring.test.ts} & 16 & Full/Section formulas, ScaledScore VO \\
           \texttt{question-spr.test.ts} & 15 & SPR fraction/decimal tolerance \\
-          \texttt{services.test.ts} & 9 & Application services with mock ports \\
+          \texttt{oop-foundations.test.ts} & 11 & Ch.3--7: equals, overloads, capabilities \\
           \texttt{user-and-errorlog.test.ts} & 11 & Email VO, RBAC, ErrorLogEntry retry \\
+          \texttt{services.test.ts} & 9 & Application services with mock ports \\
           \texttt{vocab-leitner.test.ts} & 8 & LeitnerScheduler 5-box intervals \\
           \texttt{attempt.test.ts} & 5 & Submission status locks \& invariants \\
+          \texttt{events-and-errors.test.ts} & 4 & Ch.10 PersistenceError \& Ch.11 EventBus \\
           \midrule
-          \textbf{Total Automated Tests} & \textbf{64} & \textbf{100\% deterministic in-memory tests} \\
+          \textbf{Total Automated Tests} & \textbf{79} & \textbf{100\% deterministic in-memory tests} \\
           \bottomrule
         \end{tabular}
       \end{infoCard}
@@ -838,9 +1181,9 @@ public override isCorrect(userAnswer: string): boolean {
     \begin{column}{0.48\textwidth}
       \begin{infoCard}{Zero-Database Fast Test Execution}
         \begin{itemize}\setlength{\itemsep}{1.2pt}\setlength{\parskip}{0pt}\setlength{\leftmargini}{8pt}
-          \item \textbf{Isolated Port Mocking:} Tests utilize in-memory repository doubles (\texttt{InMemoryUserRepository}, etc.) rather than running a MongoDB instance.
+          \item \textbf{Isolated Port Mocking:} Tests utilize in-memory repository doubles (\texttt{InMemoryRepository<T, TId>}) rather than running a MongoDB instance.
           \item \textbf{Deterministic Time Verification:} \texttt{Clock} port interface enables testing time-sensitive spaced repetition intervals without wall-clock sleep.
-          \item \textbf{Invariant Boundary Tests:} Specifically verifies that modifying submitted attempts throws \texttt{InvariantViolationError}.
+          \item \textbf{Exception \& Event Verifications:} Explicit tests verify that \texttt{PersistenceError} preserves its \texttt{cause} and \texttt{DomainEventBus} delivers events to all subscribers.
         \end{itemize}
       \end{infoCard}
     \end{column}
@@ -848,51 +1191,52 @@ public override isCorrect(userAnswer: string): boolean {
 
   \vspace{1.2mm}
   \begin{hlCard}{Quality Verification}
-    All 64 tests execute in under 2 seconds, proving that the domain and application layers are completely decoupled from external infrastructure.
+    All 79 tests execute in under 1 second, proving that the domain and application layers are completely decoupled from external infrastructure.
   \end{hlCard}
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% SLIDE 25: ARCHITECTURAL EVOLUTION: V1 MVP VS V2 OOP
+% SLIDE 34: ARCHITECTURAL EVOLUTION: V1 MVP VS V2 VS V3
 % ------------------------------------------------------------------------------
-\begin{frame}{Architecture Evolution: v1 MVP vs. v2 OOP Edition}
-  \vspace{0.5mm}
-  \begin{infoCard}{Comparative Architectural Transformation}
-    \fontsize{5.4pt}{6.6pt}\selectfont
-    \renewcommand{\arraystretch}{1.02}
-    \begin{tabular}{@{}p{22mm}p{44mm}p{50mm}@{}}
+\begin{frame}{Architecture Evolution: v1 MVP vs. v2 OOP vs. v3 Syllabus Edition}
+  \vspace{0.4mm}
+  \begin{infoCard}{Comprehensive Architectural Progression}
+    \fontsize{5.0pt}{6.0pt}\selectfont
+    \renewcommand{\arraystretch}{0.95}
+    \begin{tabular}{@{}p{18mm}p{28mm}p{34mm}p{44mm}@{}}
       \toprule
-      \textbf{Architectural Aspect} & \textbf{v1 MVP Architecture} & \textbf{v2 OOP Architecture} \\
+      \textbf{Dimension} & \textbf{v1 MVP Architecture} & \textbf{v2 OOP Architecture} & \textbf{v3 Syllabus Complete Edition} \\
       \midrule
-      \textbf{Service Layer} & Plain object literals (\texttt{const testService = \{...\}}) & Instantiated classes with constructor Dependency Injection \\
-      \textbf{Domain Modeling} & Raw Mongoose document types without behavioral methods & Pure TypeScript \texttt{Entity<TId>} and \texttt{ValueObject} classes \\
-      \textbf{Scoring Logic} & Procedural \texttt{if/else} branching in service functions & Polymorphic \textbf{Strategy Pattern} (\texttt{ScoringStrategy}) via Factory \\
-      \textbf{Question Handling} & Single generic question schema for all questions & Polymorphic \texttt{MultipleChoiceQuestion} vs \texttt{StudentProducedResponseQuestion} \\
-      \textbf{Persistence Boundary} & Services queried Mongoose models directly & Abstract \textbf{Repository Pattern} (\texttt{IRepository} / \texttt{MongoRepository}) \\
-      \textbf{HTTP Controllers} & Ad-hoc functions with duplicated error wrapping & Abstract \texttt{BaseController} implementing the \textbf{Template Method} \\
-      \textbf{Object Lifecycles} & Unmanaged imports scattered across routes & Centralized \textbf{Container} Singleton (Composition Root) \\
+      \textbf{Service Layer} & Plain object literals & Instantiated classes with DI & Constructor DI + In-process \textbf{Observer Bus} \\
+      \textbf{Domain Entities} & Raw Mongoose documents & Pure TypeScript \texttt{Entity<TId>} & \texttt{Entity<TId>} + \textbf{Multiple Interfaces} (\texttt{Gradable}, etc.) \\
+      \textbf{Scoring System} & Procedural \texttt{if/else} branching & Polymorphic \textbf{Strategy Pattern} & Strategy + \textbf{Constructor Overloads} (\texttt{ScaledScore}) \\
+      \textbf{Question Subtypes} & Single generic question schema & Polymorphic MCQ vs SPR & MCQ / SPR + \texttt{Comparable<Question>} sorting \\
+      \textbf{Persistence Boundary} & Direct Mongoose queries & \texttt{IRepository} / \texttt{MongoRepository} & Bounded \lstinline|IRepository<T extends Entity<TId>, TId>| \\
+      \textbf{Test Persistence} & Separate ad-hoc mocks & Individual in-memory classes & Generic \lstinline|InMemoryRepository<T, TId>| base class \\
+      \textbf{Error Architecture} & Ad-hoc strings / try-catch & \texttt{BaseController} Template Method & Typed \textbf{DomainError hierarchy} + \textbf{Cause Chaining} \\
+      \textbf{Event Handling} & Inline side effects & Direct service-to-service calls & Decoupled \texttt{DomainEventBus} + \texttt{EventHandler<T>} \\
       \bottomrule
     \end{tabular}
   \end{infoCard}
 
-  \vspace{1.2mm}
+  \vspace{0.8mm}
   \begin{hlCard}{Key Architectural Value}
-    v2 preserves the complete user-facing product and production exam dataset while transforming the internals into an extensible, testable, object-oriented system.
+    v3 represents the complete realization of the IT3100E OOP syllabus within a production-grade standardized testing platform.
   \end{hlCard}
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% SLIDE 26: HONEST LIMITATIONS & ROADMAP
+% SLIDE 35: HONEST LIMITATIONS & ROADMAP
 % ------------------------------------------------------------------------------
 \begin{frame}{Technical Limitations \& Future Engineering Roadmap}
   \vspace{0.5mm}
   \begin{columns}[T]
     \begin{column}{0.48\textwidth}
-      \begin{infoCard}{Honest Limitations in v2 Codebase}
+      \begin{infoCard}{Engineering Realities \& Trade-offs}
         \begin{itemize}\setlength{\itemsep}{1.2pt}\setlength{\parskip}{0pt}\setlength{\leftmargini}{8pt}
           \item \textbf{Simplified Scaling Formula:} Uses linear raw-to-scaled conversion rather than College Board's proprietary 3-parameter Item Response Theory (IRT) model.
-          \item \textbf{In-Memory Database Server:} Powered by \texttt{mongodb-memory-server} for zero-config demonstration rather than a distributed MongoDB replica cluster.
-          \item \textbf{Stateless Session Auth:} Uses NextAuth JSON Web Tokens rather than a dedicated Redis refresh-token rotation backend.
+          \item \textbf{Demonstration In-Memory Server:} Powered by \texttt{mongodb-memory-server} for zero-config demonstration rather than a distributed MongoDB replica cluster.
+          \item \textbf{Completed in v3:} In-process \textbf{Domain Event Bus} (\texttt{DomainEventBus}) decoupling exam submission from student progress updates and error log projections.
         \end{itemize}
       \end{infoCard}
     \end{column}
@@ -900,9 +1244,9 @@ public override isCorrect(userAnswer: string): boolean {
     \begin{column}{0.48\textwidth}
       \begin{infoCard}{Future Engineering Roadmap}
         \begin{itemize}\setlength{\itemsep}{1.2pt}\setlength{\parskip}{0pt}\setlength{\leftmargini}{8pt}
-          \item \textbf{Multistage Adaptive Testing (MST):} Implement adaptive routing logic that selects Module 2 difficulty based on Module 1 raw score.
-          \item \textbf{Event-Driven Domain Events:} Introduce Domain Events (e.g., attempt submission events) to asynchronously update Error Log and Statistics.
-          \item \textbf{Distributed Outbox Pattern:} Guarantee eventual consistency across external analytics backends.
+          \item \textbf{Multistage Adaptive Testing (MST):} Implement adaptive routing logic that selects Module 2 difficulty based on Module 1 performance.
+          \item \textbf{Distributed Event Streaming:} Upgrade the in-process event bus to Kafka or RabbitMQ for multi-server horizontal scaling.
+          \item \textbf{Transactional Outbox Pattern:} Guarantee eventual consistency across external analytics and notification backends.
         \end{itemize}
       \end{infoCard}
     \end{column}
@@ -910,12 +1254,12 @@ public override isCorrect(userAnswer: string): boolean {
 
   \vspace{1.2mm}
   \begin{hlCard}{Engineering Integrity}
-    We accurately document our design choices: our architecture is a true object-oriented system with real classes and polymorphism, while recognizing trade-offs made for demonstration portability.
+    We accurately document our design choices: our architecture is a true object-oriented system with real classes, generics, and events, while recognizing production trade-offs.
   \end{hlCard}
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% SLIDE 27: CONCLUSION & Q&A
+% SLIDE 36: CONCLUSION & Q&A
 % ------------------------------------------------------------------------------
 \usebgtitle
 \begin{frame}[plain]
@@ -929,8 +1273,8 @@ public override isCorrect(userAnswer: string): boolean {
       hlcard/.style={draw=hlborder, fill=hlfill, rounded corners=1.8mm, line width=1.0pt, text width=38mm, minimum height=18mm, align=left, inner sep=2mm}
     ]
       \node[card] (c1) at (0,0) {{\bfseries\fontsize{7.5pt}{9pt}\selectfont\color{accentblue} 4 OOP Pillars}\\[0.6mm]\fontsize{6.5pt}{7.5pt}\selectfont Verified in code: Private fields, Strategy \& Ports, Subtypes, and Polymorphic scoring \& SPR.};
-      \node[card] (c2) at (4.8,0) {{\bfseries\fontsize{7.5pt}{9pt}\selectfont\color{accentblue} Clean Architecture}\\[0.6mm]\fontsize{6.5pt}{7.5pt}\selectfont 4-tier separation: BaseController, Services, Entities \& Repositories with Container DI.};
-      \node[hlcard] (c3) at (9.6,0) {{\bfseries\fontsize{7.5pt}{9pt}\selectfont\color{accentred} Production Quality}\\[0.6mm]\fontsize{6.5pt}{7.5pt}\selectfont 64 automated tests, Desmos + KaTeX exam room, Leitner flashcards, and admin tools.};
+      \node[card] (c2) at (4.8,0) {{\bfseries\fontsize{7.5pt}{9pt}\selectfont\color{accentblue} Complete Syllabus}\\[0.6mm]\fontsize{6.5pt}{7.5pt}\selectfont Ch.3--13: Observer bus, multiple interfaces, generics, exceptions with cause \& overloads.};
+      \node[hlcard] (c3) at (9.6,0) {{\bfseries\fontsize{7.5pt}{9pt}\selectfont\color{accentred} Production Quality}\\[0.6mm]\fontsize{6.5pt}{7.5pt}\selectfont 79 automated tests, Desmos + KaTeX exam room, Leitner flashcards, and admin tools.};
     \end{tikzpicture}
 
     \vspace{6mm}

@@ -77,16 +77,34 @@ DIAGRAM_PAGES = {
         "type": "classDiagram",
     },
     19: {
-        "title": "Sequence: Exam Sitting Submission & Error Log Recording",
-        "file": "05-sequence-submit-attempt.png",
-        "mmd": "05-sequence-submit-attempt.mmd",
+        "title": "Sequence: Exam Sitting Submission & Scoring Strategy (Part 1)",
+        "file": "05a-sequence-submit-attempt.png",
+        "mmd": "05a-sequence-submit-attempt.mmd",
         "type": "sequenceDiagram",
     },
     20: {
+        "title": "Sequence: Observer Dispatch & Error Log Projection (Part 2)",
+        "file": "05b-sequence-publish-handlers.png",
+        "mmd": "05b-sequence-publish-handlers.mmd",
+        "type": "sequenceDiagram",
+    },
+    21: {
         "title": "Sequence: Flashcard Review via Leitner Spaced Repetition",
         "file": "06-sequence-vocab-review.png",
         "mmd": "06-sequence-vocab-review.mmd",
         "type": "sequenceDiagram",
+    },
+    24: {
+        "title": "Observer Pattern: Domain Event Bus & Subscriptions",
+        "file": "07-observer-events.png",
+        "mmd": "07-observer-events.mmd",
+        "type": "classDiagram",
+    },
+    28: {
+        "title": "Exception Hierarchy: Domain Errors & HTTP Mapping",
+        "file": "08-exception-hierarchy.png",
+        "mmd": "08-exception-hierarchy.mmd",
+        "type": "classDiagram",
     },
 }
 

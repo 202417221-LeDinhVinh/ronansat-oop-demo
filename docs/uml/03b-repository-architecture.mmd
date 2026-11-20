@@ -10,16 +10,25 @@ classDiagram
         <<interface>>
         +findById(id)* Promise~TEntity~
         +save(entity)* Promise~TEntity~
+        +delete(id)* Promise~boolean~
     }
 
     class MongoRepository~TEntity, TDoc~ {
         <<abstract>>
         #toEntity(doc)* TEntity
         #toDocument(entity)* object
+        +findById(id) Promise~TEntity~
+        +save(entity) Promise~TEntity~
+        +delete(id) Promise~boolean~
     }
 
-    class InMemoryUserRepository {
-        -storage: Map
+    class InMemoryRepository~TEntity, TId~ {
+        <<abstract>>
+        #items: Map
+        #idPrefix: string*
+        +findById(id) Promise~TEntity~
+        +save(entity) Promise~TEntity~
+        +delete(id) Promise~boolean~
     }
 
     class PasswordHasher {
@@ -42,11 +51,11 @@ classDiagram
         +now() Date
     }
 
-    Container ..> IRepository : wires
-    Container ..> PasswordHasher : wires
-    Container ..> Clock : wires
+    Container ..> IRepository
+    Container ..> PasswordHasher
+    Container ..> Clock
 
     IRepository <|.. MongoRepository
-    IRepository <|.. InMemoryUserRepository
+    IRepository <|.. InMemoryRepository
     PasswordHasher <|.. BcryptPasswordHasher
     Clock <|.. SystemClock

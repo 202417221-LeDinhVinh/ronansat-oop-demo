@@ -24,7 +24,7 @@ classDiagram
         +score(attempt, questions) ScaledScore
     }
 
-    Attempt ..> ScoringStrategy : delegates score
-    ScoringStrategyFactory ..> ScoringStrategy : instantiates
+    Attempt ..> ScoringStrategy
+    ScoringStrategyFactory ..> ScoringStrategy
     ScoringStrategy <|.. FullLengthScoringStrategy
     ScoringStrategy <|.. SectionalScoringStrategy

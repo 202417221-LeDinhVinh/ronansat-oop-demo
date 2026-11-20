@@ -1,5 +1,5 @@
 classDiagram
-    direction TB
+    direction LR
 
     class BaseController {
         <<abstract>>
@@ -44,6 +44,6 @@ classDiagram
     BaseController <|-- AdminTestsController
     BaseController <|-- AdminMetricsController
 
-    RegisterController --> AuthService : authService
-    AdminTestsController --> TestService : testService
-    AdminMetricsController --> AdminService : adminService
+    RegisterController --> AuthService
+    AdminTestsController --> TestService
+    AdminMetricsController --> AdminService

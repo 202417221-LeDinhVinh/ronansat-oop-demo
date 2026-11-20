@@ -61,3 +61,5 @@ slides/*.fls
 slides/*.fdb_latexmk
 slides/*.xdv
 slides/*.synctex.gz
+
+__pycache__/

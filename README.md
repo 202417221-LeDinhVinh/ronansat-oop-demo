@@ -1,4 +1,4 @@
-# RonanSAT v2 - OOP Edition
+# RonanSAT v3 - OOP Edition
 
 RonanSAT is a full-stack SAT practice platform used as the semester project for the
 Object-Oriented Programming lab. It reproduces the Bluebook-style digital SAT flow end to end:
@@ -6,8 +6,9 @@ timed Reading & Writing and Math modules, multiple-choice and student-produced-r
 questions, scaled scoring, result review, an error log, analytics, spaced-repetition
 vocabulary, and an admin studio.
 
-This is **v2**, a ground-up rewrite of the v1 MVP around a layered, dependency-inverted
-object-oriented architecture. See [v1 vs v2](#v1-vs-v2) below.
+This is **v3**. v2 rewrote the v1 MVP around a layered, dependency-inverted object-oriented
+architecture; v3 maps that code to every topic of the IT3100E OOP syllabus and restyles the UI
+after the current RonanSAT platform. See [Version history](#version-history) below.
 
 ## Features
 
@@ -208,44 +209,65 @@ The suite contains **79 unit tests**. No database or running server is required 
 
 ## Screenshots
 
+Desktop shots are 1440 px wide, mobile shots 375 px.
+
 | Screen | File |
 | --- | --- |
-| Login / register | [01-auth.png](docs/screenshots/v2/01-auth.png) |
-| Home dashboard | [02-home.png](docs/screenshots/v2/02-home.png) |
-| Practice library | [03-practice.png](docs/screenshots/v2/03-practice.png) |
-| Test room - Math with KaTeX | [04-test-math-latex.png](docs/screenshots/v2/04-test-math-latex.png) |
-| Test room - SPR question | [05-test-spr.png](docs/screenshots/v2/05-test-spr.png) |
-| Test room - R&W split view | [06-test-rw-passage.png](docs/screenshots/v2/06-test-rw-passage.png) |
-| Results list | [07-results-list.png](docs/screenshots/v2/07-results-list.png) |
-| Result detail | [08-result-detail.png](docs/screenshots/v2/08-result-detail.png) |
-| Result question review | [09-result-review-dialog.png](docs/screenshots/v2/09-result-review-dialog.png) |
-| Error log | [10-error-log.png](docs/screenshots/v2/10-error-log.png) |
-| Statistics | [11-statistics.png](docs/screenshots/v2/11-statistics.png) |
-| Vocabulary decks | [12-vocab-decks.png](docs/screenshots/v2/12-vocab-decks.png) |
-| Flashcard study | [13-vocab-study-card.png](docs/screenshots/v2/13-vocab-study-card.png) |
-| Admin overview | [14-admin-overview.png](docs/screenshots/v2/14-admin-overview.png) |
-| Admin questions | [15-admin-questions.png](docs/screenshots/v2/15-admin-questions.png) |
-| Admin question editor | [15b-admin-question-editor.png](docs/screenshots/v2/15b-admin-question-editor.png) |
-| Mobile home | [16-mobile-home.png](docs/screenshots/v2/16-mobile-home.png) |
-| Mobile test room | [17-mobile-test-room.png](docs/screenshots/v2/17-mobile-test-room.png) |
+| Login / register | [01-auth-desktop-1440.png](docs/screenshots/v3/01-auth-desktop-1440.png) |
+| Home dashboard | [02-dashboard-desktop-1440.png](docs/screenshots/v3/02-dashboard-desktop-1440.png) |
+| Practice library | [03-practice-desktop-1440.png](docs/screenshots/v3/03-practice-desktop-1440.png) |
+| Test room | [04-test-room-desktop-1440.png](docs/screenshots/v3/04-test-room-desktop-1440.png) |
+| Results list | [05-results-list-desktop-1440.png](docs/screenshots/v3/05-results-list-desktop-1440.png) |
+| Result detail | [06-result-detail-desktop-1440.png](docs/screenshots/v3/06-result-detail-desktop-1440.png) |
+| Error log | [07-error-log-desktop-1440.png](docs/screenshots/v3/07-error-log-desktop-1440.png) |
+| Statistics | [08-statistics-desktop-1440.png](docs/screenshots/v3/08-statistics-desktop-1440.png) |
+| Vocabulary decks | [09-vocab-library-desktop-1440.png](docs/screenshots/v3/09-vocab-library-desktop-1440.png) |
+| Flashcard study | [10-vocab-study-desktop-1440.png](docs/screenshots/v3/10-vocab-study-desktop-1440.png) |
+| Settings | [11-settings-desktop-1440.png](docs/screenshots/v3/11-settings-desktop-1440.png) |
+| Admin overview | [12-admin-overview-desktop-1440.png](docs/screenshots/v3/12-admin-overview-desktop-1440.png) |
+| Admin tests | [13-admin-tests-desktop-1440.png](docs/screenshots/v3/13-admin-tests-desktop-1440.png) |
+| Admin questions | [14-admin-questions-desktop-1440.png](docs/screenshots/v3/14-admin-questions-desktop-1440.png) |
+| Admin users | [15-admin-users-desktop-1440.png](docs/screenshots/v3/15-admin-users-desktop-1440.png) |
+| Admin vocabulary | [16-admin-vocab-desktop-1440.png](docs/screenshots/v3/16-admin-vocab-desktop-1440.png) |
+| Mobile home | [17-dashboard-mobile-375.png](docs/screenshots/v3/17-dashboard-mobile-375.png) |
+| Mobile test room | [18-test-room-mobile-375.png](docs/screenshots/v3/18-test-room-mobile-375.png) |
+| Mobile flashcard study | [19-vocab-study-mobile-375.png](docs/screenshots/v3/19-vocab-study-mobile-375.png) |
 
 ## UML
 
-The diagrams live in [docs/uml/](docs/uml/):
+The diagrams live in [docs/uml/](docs/uml/) (Mermaid sources `.mmd` next to each PNG/SVG):
 
-- [01a-domain-class.png](docs/uml/01a-domain-class.png) - users, tests, questions
-- [01b-domain-class.png](docs/uml/01b-domain-class.png) - attempts, scoring, error log, vocabulary
+- [01a-domain-class.png](docs/uml/01a-domain-class.png) - users, tests, questions (split views: `01a1`, `01a2`)
+- [01b-domain-class.png](docs/uml/01b-domain-class.png) - attempts, scoring, error log, vocabulary (split views: `01b1`, `01b2`)
 - [02-scoring-strategy.png](docs/uml/02-scoring-strategy.png) - Strategy pattern and polymorphism
-- [03a-layered-architecture.png](docs/uml/03a-layered-architecture.png) - layers and controllers
+- [03a-layered-architecture.png](docs/uml/03a-layered-architecture.png) - layers and controllers (split views: `03a1`, `03a2`)
 - [03b-repository-architecture.png](docs/uml/03b-repository-architecture.png) - repositories and ports
-- [04-use-case.png](docs/uml/04-use-case.png) - actors and use cases
-- [05-sequence-submit-attempt.png](docs/uml/05-sequence-submit-attempt.png) - submit-attempt sequence
+- [04-use-case.png](docs/uml/04-use-case.png) - actors and use cases (`04a` student, `04b` admin)
+- [05-sequence-submit-attempt.png](docs/uml/05-sequence-submit-attempt.png) - submit-attempt sequence (`05a` submit, `05b` event handlers)
 - [06-sequence-vocab-review.png](docs/uml/06-sequence-vocab-review.png) - vocabulary review sequence
+- [07-observer-events.png](docs/uml/07-observer-events.png) - Observer: typed domain event bus and handlers
+- [08-exception-hierarchy.png](docs/uml/08-exception-hierarchy.png) - `DomainError` hierarchy and HTTP mapping
 
-## v1 vs v2
+The presentation deck is `slides/main.pdf` (LaTeX source `slides/main.tex`, speaker script `slides/script.md`).
 
-v1 is the original MVP and is preserved in git as tag **`v1-mvp`**; v2 lives on the `v2-oop`
-branch.
+## Version history
+
+v1 is the original MVP, preserved in git as tag **`v1-mvp`**. v2 is preserved on the `v2-oop`
+branch. v3 is the current `main`.
+
+### v2 to v3
+
+- Every IT3100E syllabus topic (constructors and comparison, overloading, static members,
+  aggregation vs composition, abstract classes vs interfaces, up/downcasting, generics,
+  exceptions, Observer/event handling) is backed by running code and a unit test, listed in
+  [`docs/v3/OOP-CHECKLIST.md`](docs/v3/OOP-CHECKLIST.md) and verified by `npm run check:oop`.
+- Submission side effects (student progress, error log) moved out of `PracticeService` into
+  Observer handlers on a typed `DomainEventBus`.
+- The UI was restyled after the current RonanSAT platform (sidebar shell, stat cards, charts,
+  flashcards) without adding features or routes.
+- UML gained the Observer and exception diagrams, and the slides were updated to 38 pages.
+
+### v1 to v2
 
 - v1 used procedural object-literal services (`export const xService = { ... }`) that mixed
   validation, Mongoose access, and response shaping. v2 uses domain entities, application
